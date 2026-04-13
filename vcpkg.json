@@ -1,0 +1,14 @@
+{
+  "name": "sw-dumper",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "nlohmann-json",
+    "wil",
+    "plog",
+    "crow",
+    "libzip",
+    "sqlite3",
+    "pugixml",
+    "zlib"
+  ]
+}

@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>SW Portal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ── Design tokens ────────────────────────────────────────────────────────── */
+:root {
+  --pri:     #2563eb;
+  --pri-dk:  #1d4ed8;
+  --pri-lt:  #eff6ff;
+  --text:    #1e293b;
+  --muted:   #64748b;
+  --border:  #e2e8f0;
+  --bg:      #f8fafc;
+  --card:    #ffffff;
+  --hover:   #f1f5f9;
+  --sel-bg:  #eff6ff;
+  --sel-br:  #2563eb;
+  --red:     #dc2626;
+  --green:   #16a34a;
+  --amber:   #d97706;
+  --radius:  6px;
+  --shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+}
+
+/* ── Reset / base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; font-size: 14px; }
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.hdr { background: var(--pri); color: #fff; padding: 0 16px; height: 48px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,.2); z-index: 20; }
+.hdr-left  { display: flex; align-items: center; gap: 16px; }
+.hdr-title { font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
+.ws-pill   { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.15); padding: 4px 10px; border-radius: 20px; }
+.ws-pill select { background: transparent; border: none; color: #fff; font-weight: 600; font-size: .9rem; cursor: pointer; outline: none; }
+.ws-pill select option { color: #1e293b; }
+.btn-del   { cursor: pointer; color: rgba(255,255,255,.6); font-size: 1rem; line-height: 1; transition: color .15s; }
+.btn-del:hover { color: #fca5a5; }
+.hdr-status { font-size: .8rem; opacity: .75; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 360px; background: var(--card); display: flex; flex-direction: column; flex-shrink: 0; }
+.main    { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* ── Resizable pane divider ───────────────────────────────────────────────── */
+.pane-divider {
+  width: 5px; flex-shrink: 0; cursor: col-resize; background: var(--border);
+  position: relative; z-index: 10; transition: background .12s;
+}
+.pane-divider:hover, .pane-divider.active { background: var(--pri); }
+/* Wider invisible hit-area so the 5px strip is easy to grab */
+.pane-divider::after {
+  content: ''; position: absolute; inset: 0; left: -5px; right: -5px;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.sb-top { padding: 10px; background: var(--bg); border-bottom: 1px solid var(--border); }
+.upload-btn { width: 100%; padding: 8px; border: 1.5px dashed #94a3b8; border-radius: var(--radius); background: transparent; color: var(--muted); font-size: .82rem; cursor: pointer; text-align: center; transition: .15s; }
+.upload-btn:hover { border-color: var(--pri); color: var(--pri); background: var(--pri-lt); }
+.seg  { display: flex; background: #e2e8f0; border-radius: 5px; padding: 2px; margin: 8px 0; }
+.seg-btn { flex: 1; text-align: center; padding: 5px 8px; cursor: pointer; border-radius: 4px; font-size: .82rem; color: var(--muted); font-weight: 500; user-select: none; transition: .15s; }
+.seg-btn.active { background: var(--card); color: var(--pri); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.search { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; outline: none; transition: border-color .15s; }
+.search:focus { border-color: var(--pri); }
+.scroll { flex: 1; overflow-y: auto; }
+
+/* ── File list ────────────────────────────────────────────────────────────── */
+.file-item { padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background .1s; }
+.file-item:hover { background: var(--hover); }
+.file-item.active { background: var(--sel-bg); border-left: 3px solid var(--sel-br); }
+.file-icon { font-size: 1rem; flex-shrink: 0; }
+.file-info { min-width: 0; }
+.file-name { font-weight: 600; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-path { font-size: .75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Tree view ────────────────────────────────────────────────────────────── */
+ul.tree, ul.tree ul { list-style: none; margin: 0; padding-left: 0; }
+ul.tree ul { padding-left: 18px; display: none; }
+ul.tree ul.open { display: block; }
+.nc { display: flex; align-items: center; padding: 4px 8px; cursor: pointer; border-left: 3px solid transparent; transition: .1s; user-select: none; }
+.nc:hover { background: var(--hover); }
+.nc.sel { background: var(--sel-bg); border-left-color: var(--sel-br); color: var(--pri); }
+.nc.dis { cursor: default; color: #94a3b8; }
+.tog { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; color: var(--muted); font-size: .75rem; font-family: monospace; cursor: pointer; flex-shrink: 0; }
+.tog.empty { opacity: .3; cursor: default; }
+.ni { margin-right: 5px; font-size: .9rem; flex-shrink: 0; }
+.nt { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .86rem; }
+.bq { background: #e2e8f0; color: #475569; padding: 1px 5px; border-radius: 3px; font-size: .72rem; margin-left: 5px; }
+
+/* ── Main content ─────────────────────────────────────────────────────────── */
+.content-tabs { display: flex; align-items: center; gap: 4px; padding: 0 16px; background: var(--card); border-bottom: 1px solid var(--border); flex-shrink: 0; height: 44px; }
+.ct-btn { padding: 6px 14px; cursor: pointer; font-size: .88rem; font-weight: 500; border-radius: 4px; color: var(--muted); transition: .15s; border: none; background: transparent; }
+.ct-btn:hover { background: var(--hover); color: var(--text); }
+.ct-btn.active { background: var(--pri-lt); color: var(--pri); font-weight: 600; }
+.ct-spacer { flex: 1; }
+#docMeta { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
+#docTitle { font-weight: 600; color: var(--text); }
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .72rem; font-weight: 600; }
+.badge-part  { background: #f1f5f9; color: #475569; }
+.badge-asm   { background: #dbeafe; color: #1e40af; }
+.badge-cut   { background: #d1fae5; color: #065f46; }
+.badge-drw   { background: #ede9fe; color: #5b21b6; }
+.badge-warn  { background: #fef3c7; color: #92400e; cursor: pointer; }
+.badge-err   { background: #fee2e2; color: #991b1b; }
+.badge-ok    { background: #d1fae5; color: #065f46; }
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+.pane { flex: 1; overflow: hidden; display: none; }
+.pane.active { display: flex; flex-direction: column; }
+
+/* ── Details pane ─────────────────────────────────────────────────────────── */
+#paneDetails { overflow: hidden; }
+.details-wrap { display: flex; flex-direction: row; height: 100%; overflow: hidden; }
+.det-left  { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--card); overflow-y: auto; }
+.det-right { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--card); overflow: hidden; }
+
+/* Config selector bar */
+.cfg-bar { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: var(--bg); }
+.cfg-bar label { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.cfg-bar select { flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; outline: none; background: var(--card); }
+.cfg-bar select:focus { border-color: var(--pri); }
+
+/* Preview */
+.preview-box { margin: 12px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 200px; max-height: 260px; cursor: zoom-in; }
+.preview-box img { max-width: 100%; max-height: 250px; object-fit: contain; }
+.preview-empty { color: #cbd5e1; font-size: .85rem; }
+
+/* Mass props */
+.mass-card { margin: 0 12px 12px; background: #fafcff; border: 1px solid #dbeafe; border-radius: var(--radius); padding: 10px 12px; }
+.mass-title { font-size: .78rem; font-weight: 600; color: var(--pri); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+.mass-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: .83rem; }
+.mass-val { font-family: monospace; font-weight: 600; color: #1d4ed8; }
+
+/* Inner tabs */
+.inner-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
+.it-btn { padding: 9px 14px; cursor: pointer; font-size: .83rem; border-bottom: 2px solid transparent; color: var(--muted); white-space: nowrap; }
+.it-btn.active { border-bottom-color: var(--pri); color: var(--pri); font-weight: 600; background: var(--card); }
+.it-cnt { flex: 1; overflow: auto; }
+.it-pane { display: none; }
+.it-pane.active { display: block; }
+
+/* Tables */
+.tbl-wrap { overflow: auto; }
+table.props { width: 100%; border-collapse: collapse; }
+table.props th, table.props td { padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: .84rem; vertical-align: top; }
+table.props th { background: var(--bg); font-weight: 600; color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0; }
+table.props tr:hover td { background: var(--hover); }
+.prop-val { font-family: monospace; color: #be185d; word-break: break-all; }
+.mono { font-family: monospace; font-size: .83rem; }
+.tag-sup { background: #fee2e2; color: #991b1b; padding: 1px 5px; border-radius: 3px; font-size: .7rem; font-weight: 600; margin-left: 4px; }
+.empty-state { padding: 24px; text-align: center; color: var(--muted); font-size: .9rem; }
+
+/* ── BOM pane ─────────────────────────────────────────────────────────────── */
+#paneBom { flex-direction: column; overflow: hidden; }
+.bom-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--card); flex-shrink: 0; flex-wrap: wrap; }
+.bom-search { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .84rem; outline: none; }
+.bom-search:focus { border-color: var(--pri); }
+.bom-btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); cursor: pointer; font-size: .82rem; color: var(--text); white-space: nowrap; transition: .1s; }
+.bom-btn:hover { background: var(--hover); border-color: #94a3b8; }
+.bom-table-wrap { flex: 1; overflow: auto; }
+table.bom { width: 100%; border-collapse: collapse; }
+table.bom th { position: sticky; top: 0; background: var(--bg); padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--border); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; white-space: nowrap; }
+table.bom td { padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: .84rem; vertical-align: middle; }
+table.bom tr:hover td { background: var(--hover); }
+.bom-name-cell { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.bom-indent { display: inline-block; width: calc(var(--depth, 0) * 20px); flex-shrink: 0; }
+.bom-toggle { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 3px; font-size: .7rem; color: var(--muted); background: transparent; border: none; flex-shrink: 0; }
+.bom-toggle:hover { background: var(--hover); }
+.bom-toggle.leaf { opacity: .3; cursor: default; }
+.bom-icon { font-size: .9rem; flex-shrink: 0; }
+.bom-label { overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+.bom-open { padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; background: transparent; font-size: .75rem; color: var(--muted); transition: .1s; }
+.bom-open:hover { border-color: var(--pri); color: var(--pri); }
+.bom-pos { font-family: monospace; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.bom-qty { text-align: center; font-weight: 700; color: var(--text); }
+.bom-warnings { flex-shrink: 0; border-top: 1px solid var(--border); background: #fffbeb; padding: 0; max-height: 120px; overflow: auto; }
+.bom-warn-head { padding: 6px 14px; font-size: .8rem; font-weight: 600; color: var(--amber); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.bom-warn-item { padding: 3px 14px; font-size: .78rem; color: #92400e; display: flex; align-items: flex-start; gap: 6px; }
+.bom-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: var(--muted); gap: 8px; }
+.bom-empty-icon { font-size: 3rem; opacity: .25; }
+
+/* ── BOM detail panel ─────────────────────────────────────────────────────── */
+.bom-main   { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.bom-detail { width: 300px; flex-shrink: 0; background: var(--card); display: flex; flex-direction: column; overflow-y: auto; }
+.bd-header  { padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.bd-name    { font-weight: 700; font-size: .92rem; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-cfg     { font-size: .8rem; color: var(--muted); }
+.bd-preview { margin: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 160px; max-height: 200px; overflow: hidden; cursor: zoom-in; }
+.bd-preview img { max-width: 100%; max-height: 196px; object-fit: contain; }
+.bd-section { padding: 6px 14px; border-bottom: 1px solid var(--border); background: var(--bg); font-size: .74rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.bd-props   { flex: 1; }
+table.bom tr.bom-sel td { background: var(--sel-bg); }
+
+/* ── Settings modal ───────────────────────────────────────────────────────── */
+#settingsModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; align-items:center; justify-content:center; }
+.settings-box  { background:var(--card); border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,.2); width:680px; max-width:95vw; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; }
+.settings-hdr  { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); background:var(--bg); flex-shrink:0; }
+.settings-hdr h2 { font-size:.95rem; font-weight:700; margin:0; }
+.settings-close { cursor:pointer; font-size:1.2rem; color:var(--muted); line-height:1; }
+.settings-close:hover { color:var(--text); }
+.settings-body { flex:1; overflow-y:auto; padding:14px 18px; }
+.settings-foot { display:flex; justify-content:flex-end; gap:8px; padding:10px 18px; border-top:1px solid var(--border); background:var(--bg); flex-shrink:0; }
+.btn-primary { padding:7px 18px; background:var(--pri); color:#fff; border:none; border-radius:var(--radius); cursor:pointer; font-size:.86rem; font-weight:600; }
+.btn-primary:hover { background:var(--pri-dk); }
+.btn-secondary { padding:7px 18px; background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; font-size:.86rem; }
+.btn-secondary:hover { background:var(--hover); }
+.prop-cfg-table { width:100%; border-collapse:collapse; }
+.prop-cfg-table th { padding:6px 10px; text-align:left; font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; background:var(--bg); border-bottom:2px solid var(--border); position:sticky;top:0; }
+.prop-cfg-table td { padding:6px 10px; border-bottom:1px solid var(--border); font-size:.84rem; vertical-align:middle; }
+.prop-cfg-table tr:hover td { background:var(--hover); }
+.role-sel { padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-size:.82rem; background:var(--card); color:var(--text); width:100%; }
+.role-sel:focus { border-color:var(--pri); outline:none; }
+.role-badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:.72rem; font-weight:600; }
+.role-pn  { background:#dbeafe; color:#1e40af; }
+.role-desc{ background:#d1fae5; color:#065f46; }
+.role-mat { background:#fef3c7; color:#92400e; }
+.role-rev { background:#ede9fe; color:#5b21b6; }
+
+/* ── Profile modal ────────────────────────────────────────────────────────── */
+#profileModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; align-items:center; justify-content:center; }
+.profile-box  { background:var(--card); border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,.2); width:900px; max-width:96vw; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; }
+.profile-body { flex:1; display:flex; overflow:hidden; }
+.prof-list-col { width:220px; flex-shrink:0; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--bg); }
+.prof-list-head { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--border); font-weight:600; font-size:.85rem; }
+.prof-item { padding:9px 12px; cursor:pointer; border-bottom:1px solid var(--border); font-size:.85rem; display:flex; align-items:center; justify-content:space-between; gap:6px; transition:.1s; }
+.prof-item:hover { background:var(--hover); }
+.prof-item.sel  { background:var(--sel-bg); border-left:3px solid var(--sel-br); color:var(--pri); font-weight:600; }
+.prof-item-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.prof-del { color:#94a3b8; cursor:pointer; font-size:.8rem; flex-shrink:0; line-height:1; padding:2px 4px; border-radius:3px; }
+.prof-del:hover { color:var(--red); background:#fee2e2; }
+.prof-edit-col  { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.prof-edit-empty { flex:1; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:.9rem; }
+.prof-edit-scroll { flex:1; overflow-y:auto; padding:14px 18px; }
+.prof-section { font-size:.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:16px 0 8px; display:flex; align-items:center; justify-content:space-between; }
+.prof-section:first-child { margin-top:0; }
+.dyn-table { width:100%; border-collapse:collapse; margin-bottom:4px; }
+.dyn-table th { padding:5px 8px; text-align:left; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; background:var(--bg); border-bottom:2px solid var(--border); }
+.dyn-table td { padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:middle; font-size:.83rem; }
+.dyn-table tr:hover td { background:var(--hover); }
+.dyn-inp { width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-size:.82rem; background:var(--card); outline:none; }
+.dyn-inp:focus { border-color:var(--pri); }
+.dyn-sel  { width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-size:.82rem; background:var(--card); outline:none; }
+.dyn-del  { padding:2px 7px; border:1px solid var(--border); border-radius:3px; cursor:pointer; background:transparent; font-size:.78rem; color:var(--muted); white-space:nowrap; }
+.dyn-del:hover { border-color:var(--red); color:var(--red); background:#fee2e2; }
+.btn-sm   { padding:4px 10px; border:1px solid var(--border); border-radius:4px; background:var(--card); cursor:pointer; font-size:.78rem; color:var(--text); transition:.1s; }
+.btn-sm:hover { background:var(--hover); border-color:#94a3b8; }
+.rule-badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:.72rem; font-weight:600; }
+.rule-kg { background:#fef3c7; color:#92400e; }
+.rule-ns { background:#fee2e2; color:#991b1b; }
+.rule-ph { background:#ede9fe; color:#5b21b6; }
+
+/* ── Loading overlay ──────────────────────────────────────────────────────── */
+#overlay { display: none; position: absolute; inset: 0; background: rgba(255,255,255,.82); z-index: 50; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(2px); gap: 12px; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--pri); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#overlayText { font-size: .9rem; font-weight: 600; color: var(--pri); }
+
+/* ── Global drag-drop ─────────────────────────────────────────────────────── */
+#globalDrop { display: none; position: fixed; inset: 0; background: rgba(37,99,235,.88); z-index: 9999; color: #fff; flex-direction: column; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 700; border: 4px dashed rgba(255,255,255,.6); }
+
+/* ── Modal zoom ───────────────────────────────────────────────────────────── */
+#modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 999; align-items: center; justify-content: center; cursor: zoom-out; }
+#modalImg { max-width: 95vw; max-height: 95vh; border: 2px solid #fff; border-radius: 4px; }
+
+/* ── Scrollbar style ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── Global drop / zoom overlays ──────────────────────────────────────── -->
+<div id="globalDrop"><div>📂 Drop ZIP here</div><div style="font-size:1rem;font-weight:400;margin-top:8px">Creates a new workspace</div></div>
+<div id="modal" onclick="this.style.display='none'"><img id="modalImg" src="" alt="Preview"></div>
+
+<!-- ── Settings modal ────────────────────────────────────────────────────── -->
+<div id="settingsModal" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-box">
+    <div class="settings-hdr">
+      <h2>⚙ Property Settings — <span id="settingsWsLabel"></span></h2>
+      <span class="settings-close" onclick="closeSettings()">✕</span>
+    </div>
+    <div class="settings-body">
+      <p style="font-size:.82rem;color:var(--muted);margin:0 0 10px">
+        Configure which properties are shown in the BOM and Details view, and assign roles.
+        The <strong>Part Number</strong> role is used as grouping key in the BOM (items with the same value are aggregated).
+      </p>
+      <table class="prop-cfg-table">
+        <thead><tr><th style="width:32px">Show</th><th>Property Name</th><th style="width:180px">Role</th></tr></thead>
+        <tbody id="propCfgBody"></tbody>
+      </table>
+    </div>
+    <div class="settings-foot">
+      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary"   onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Profile modal ──────────────────────────────────────────────────────── -->
+<div id="profileModal" onclick="if(event.target===this)closeProfiles()">
+  <div class="profile-box">
+    <div class="settings-hdr">
+      <h2>📋 Profiles</h2>
+      <span class="settings-close" onclick="closeProfiles()">✕</span>
+    </div>
+    <div class="profile-body">
+      <!-- List column -->
+      <div class="prof-list-col">
+        <div class="prof-list-head">
+          <span>Profiles</span>
+          <button class="btn-primary" style="padding:4px 10px;font-size:.78rem" onclick="startNewProfile()">+ New</button>
+        </div>
+        <div id="profListItems" style="overflow-y:auto;flex:1"></div>
+      </div>
+      <!-- Editor column -->
+      <div class="prof-edit-col">
+        <div class="prof-edit-empty" id="profEditEmpty">Select or create a profile</div>
+        <div id="profEditContent" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+          <div class="prof-edit-scroll">
+            <!-- Meta -->
+            <div class="prof-section">General</div>
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:6px 12px;align-items:center;margin-bottom:8px">
+              <label style="font-size:.82rem;color:var(--muted)">Name</label>
+              <input id="profName" class="dyn-inp" placeholder="Profile name">
+              <label style="font-size:.82rem;color:var(--muted)">Description</label>
+              <input id="profDesc" class="dyn-inp" placeholder="Optional description">
+            </div>
+
+            <!-- Mappings -->
+            <div class="prof-section">
+              Property → Field Mappings
+              <button class="btn-sm" onclick="addMapping()">+ Add</button>
+            </div>
+            <p style="font-size:.78rem;color:var(--muted);margin:0 0 8px">
+              Map SolidWorks custom properties to Thrift target fields (Part / BomItem / Bom).
+            </p>
+            <table class="dyn-table">
+              <thead><tr>
+                <th>SW Property</th>
+                <th style="width:110px">Entity</th>
+                <th style="width:200px">Target Field</th>
+                <th style="width:36px"></th>
+              </tr></thead>
+              <tbody id="mappingsTbody"></tbody>
+            </table>
+
+            <!-- Rules -->
+            <div class="prof-section" style="margin-top:20px">
+              Transformation Rules
+              <button class="btn-sm" onclick="addRule()">+ Add</button>
+            </div>
+            <p style="font-size:.78rem;color:var(--muted);margin:0 0 8px">
+              Rules are evaluated per BOM item based on its properties.<br>
+              <span class="rule-badge rule-kg">Kaufgruppe</span> — keep item, remove children &nbsp;
+              <span class="rule-badge rule-ns">NonBom</span> — exclude item entirely &nbsp;
+              <span class="rule-badge rule-ph">Phantom</span> — exclude item, promote children
+            </p>
+            <table class="dyn-table">
+              <thead><tr>
+                <th style="width:150px">Rule Type</th>
+                <th>Property Name</th>
+                <th style="width:130px">Property Value</th>
+                <th style="width:36px"></th>
+              </tr></thead>
+              <tbody id="rulesTbody"></tbody>
+            </table>
+          </div>
+          <!-- Footer -->
+          <div class="settings-foot">
+            <button class="btn-secondary" onclick="closeProfiles()">Cancel</button>
+            <button class="btn-primary"   onclick="saveProfile()">Save Profile</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Datalist for SW property name autocomplete in profile mappings -->
+<datalist id="propNamesList"></datalist>
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<header class="hdr">
+  <div class="hdr-left">
+    <span class="hdr-title">SW Portal</span>
+    <div class="ws-pill">
+      <span style="opacity:.7;font-size:.85rem">Workspace:</span>
+      <select id="wsSelect"><option>Loading…</option></select>
+      <span class="btn-del" title="Delete workspace" onclick="deleteWorkspace()">✕</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <button style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;border-radius:4px;padding:4px 10px;font-size:.85rem" onclick="openProfiles()" title="Manage profiles">📋 Profiles</button>
+    <button style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;border-radius:4px;padding:4px 10px;font-size:.85rem" onclick="openSettings()" title="Property settings">⚙ Properties</button>
+    <div id="hdrStatus" class="hdr-status">Ready</div>
+  </div>
+</header>
+
+<!-- ── Body layout ───────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <div class="upload-btn" id="dropZone">+ Upload ZIP file</div>
+      <input type="file" id="fileInput" hidden accept=".zip">
+      <div class="seg">
+        <div class="seg-btn active" id="tabFiles" onclick="setSbMode('files')">Files</div>
+        <div class="seg-btn"        id="tabTree"  onclick="setSbMode('tree')">Structure</div>
+      </div>
+      <input type="text" id="sbFilter" class="search" placeholder="Filter…">
+    </div>
+    <div class="scroll" id="sbScroll">
+      <div id="viewFiles"><div class="empty-state">Load a workspace or upload a ZIP</div></div>
+      <div id="viewTree"  style="display:none;padding:4px 0"><div class="empty-state">Open a file</div></div>
+    </div>
+  </aside>
+  <div class="pane-divider" id="divSidebar"></div>
+
+  <!-- ── Main ────────────────────────────────────────────────────────────── -->
+  <div class="main" style="position:relative">
+
+    <!-- Loading overlay (scoped to main) -->
+    <div id="overlay"><div class="spinner"></div><span id="overlayText">Loading…</span></div>
+
+    <!-- Content tab bar -->
+    <div class="content-tabs">
+      <button class="ct-btn active" id="ctDetails" onclick="showContentTab('details')">Details</button>
+      <button class="ct-btn"        id="ctBom"     onclick="activateBomTab()">Bill of Materials</button>
+      <div class="ct-spacer"></div>
+      <div id="docMeta" style="display:none">
+        <span id="docTitle"></span>
+        <span id="docBadge" class="badge"></span>
+      </div>
+    </div>
+
+    <!-- ── Details pane ──────────────────────────────────────────────────── -->
+    <div class="pane active" id="paneDetails">
+      <div id="detEmpty" class="empty-state" style="padding:60px">No file selected — click a file in the sidebar</div>
+      <div id="detContent" class="details-wrap" style="display:none">
+        <!-- Left column: preview + mass props -->
+        <div class="det-left">
+          <div class="cfg-bar">
+            <label for="cfgSel">Configuration</label>
+            <select id="cfgSel" onchange="applyConfig()"></select>
+          </div>
+          <div class="preview-box" id="previewBox" onclick="zoomPreview()">
+            <img id="previewImg" alt="Preview" style="display:none">
+            <span class="preview-empty" id="previewEmpty">No preview</span>
+          </div>
+          <div class="mass-card" id="massCard" style="display:none">
+            <div class="mass-title">Physical Properties</div>
+            <div id="massContent"></div>
+          </div>
+        </div>
+        <div class="pane-divider" id="divDetails"></div>
+        <!-- Right column: property tabs -->
+        <div class="det-right">
+          <div class="inner-tabs" id="innerTabs">
+            <div class="it-btn active" id="itProps" onclick="showInnerTab('props')">Properties</div>
+            <div class="it-btn" id="itComps"  onclick="showInnerTab('comps')"  style="display:none">Components</div>
+            <div class="it-btn" id="itCut"    onclick="showInnerTab('cut')"    style="display:none">Cut List</div>
+            <div class="it-btn" id="itViews"  onclick="showInnerTab('views')"  style="display:none">Views</div>
+          </div>
+          <div class="it-cnt">
+            <div class="it-pane active" id="ipProps">
+              <div class="tbl-wrap"><table class="props"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody id="propsTbody"></tbody></table></div>
+            </div>
+            <div class="it-pane" id="ipComps">
+              <div class="tbl-wrap"><table class="props"><thead><tr><th>Name</th><th>File</th><th>Config</th><th>Status</th></tr></thead><tbody id="compsTbody"></tbody></table></div>
+            </div>
+            <div class="it-pane" id="ipCut">
+              <div class="tbl-wrap"><table class="props"><thead><tr><th>Qty</th><th>Name</th><th>Properties</th></tr></thead><tbody id="cutTbody"></tbody></table></div>
+            </div>
+            <div class="it-pane" id="ipViews">
+              <div class="tbl-wrap"><table class="props"><thead><tr><th>View</th><th>Model</th><th>Configuration</th></tr></thead><tbody id="viewsTbody"></tbody></table></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BOM pane ───────────────────────────────────────────────────────── -->
+    <div class="pane" id="paneBom">
+      <div id="bomEmpty" class="bom-empty" style="flex:1;display:flex">
+        <div class="bom-empty-icon">📋</div>
+        <div>No file loaded</div>
+        <div style="font-size:.8rem">Open a SLDASM, SLDDRW or SLDPRT file</div>
+      </div>
+      <div id="bomContent" style="display:none;flex:1;flex-direction:row;overflow:hidden">
+        <!-- Left: BOM table -->
+        <div class="bom-main">
+          <div class="bom-toolbar">
+            <input type="text" class="bom-search" id="bomSearch" placeholder="🔍  Search BOM…" oninput="filterBom()">
+            <button class="bom-btn" onclick="expandAllBom()">Expand all</button>
+            <button class="bom-btn" onclick="collapseAllBom()">Collapse all</button>
+            <button class="bom-btn" onclick="exportBomCsv()">📥 CSV</button>
+            <select id="bomProfileSel" class="bom-btn" style="cursor:pointer" onchange="onBomProfileChange()" title="Apply transformation profile">
+              <option value="">— No profile —</option>
+            </select>
+            <span id="bomWarnBadge" class="badge badge-warn" style="display:none" onclick="toggleBomWarnings()"></span>
+          </div>
+          <div class="bom-table-wrap">
+            <table class="bom">
+              <thead><tr>
+                <th style="width:30px"></th>
+                <th style="width:70px">Pos.</th>
+                <th>Name</th>
+                <th style="width:55px;text-align:center">Qty</th>
+                <th style="width:80px">Type</th>
+                <th style="width:110px">Configuration</th>
+                <th id="bomDescCol">Description</th>
+                <th style="width:36px"></th>
+              </tr></thead>
+              <tbody id="bomTbody"></tbody>
+            </table>
+          </div>
+          <div class="bom-warnings" id="bomWarnPanel" style="display:none">
+            <div class="bom-warn-head" onclick="toggleBomWarnings()">⚠ Warnings <span id="bomWarnCount"></span></div>
+            <div id="bomWarnList"></div>
+          </div>
+        </div>
+        <!-- Right: BOM item detail panel -->
+        <div class="pane-divider" id="divBom" style="display:none"></div>
+        <div class="bom-detail" id="bomDetail" style="display:none">
+          <div class="bd-header">
+            <div class="bd-name" id="bdName">–</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              <span class="badge" id="bdBadge"></span>
+              <span class="bd-cfg" id="bdConfigLabel"></span>
+            </div>
+          </div>
+          <div class="bd-preview" id="bdPreviewBox" onclick="zoomBdPreview()">
+            <img id="bdPreviewImg" alt="Preview" style="display:none">
+            <span style="color:#cbd5e1;font-size:.82rem" id="bdPreviewEmpty">No preview</span>
+          </div>
+          <div id="bdMassCard" class="mass-card" style="display:none;margin:0 10px 10px">
+            <div class="mass-title">Physical Properties</div>
+            <div id="bdMassContent"></div>
+          </div>
+          <div class="bd-section">Properties</div>
+          <table class="props bd-props"><tbody id="bdPropsTbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- .main -->
+</div><!-- .layout -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════════
+let allFiles = [];       // [{name, rel_path, session}]
+let fileMap = new Map(); // lowercase filename → file obj
+let currentWs = "";
+let currentFile = null;
+let currentDoc = null;   // parsed document JSON from /api/doc/
+let currentBom = null;   // BOM JSON from /api/bom/
+let sbMode = "files";    // "files" | "tree"
+let activeContentTab = "details";
+let bomRows = [];        // flat list: {id, item, depth, pos, parentId}
+let bomExpanded = new Set();
+let bomParentMap = new Map(); // id → parentId (null for roots)
+let bomFilter = "";
+let warnVisible = false;
+let selectedBomId = null;
+
+// Property configuration state
+// propConfigs: Map<name, {visible:bool, role:string}>
+// roles: "" | "part_number" | "description" | "material" | "revision"
+let propConfigs = new Map();
+let propNames   = [];        // all known names (indexed from DB)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════════════════════════════════════
+function safeEncode(str) {
+  return btoa(unescape(encodeURIComponent(str)))
+           .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fileIcon(name) {
+  const n = name.toLowerCase();
+  if (n.endsWith('.sldasm')) return '📦';
+  if (n.endsWith('.sldprt')) return '⚙️';
+  if (n.endsWith('.slddrw')) return '📐';
+  return '📄';
+}
+function findFileByName(name) {
+  const n = name.toLowerCase();
+  if (fileMap.has(n))               return fileMap.get(n);
+  if (fileMap.has(n + '.sldprt'))   return fileMap.get(n + '.sldprt');
+  if (fileMap.has(n + '.sldasm'))   return fileMap.get(n + '.sldasm');
+  if (fileMap.has(n + '.slddrw'))   return fileMap.get(n + '.slddrw');
+  // Try matching just the basename of a Windows/Linux path
+  const bn = n.split(/[/\\]/).pop();
+  if (bn && fileMap.has(bn)) return fileMap.get(bn);
+  return null;
+}
+function setStatus(msg, isError) {
+  const el = document.getElementById('hdrStatus');
+  el.textContent = msg;
+  el.style.color = isError ? '#fca5a5' : '';
+}
+function showLoading(active, txt) {
+  const ov = document.getElementById('overlay');
+  ov.style.display = active ? 'flex' : 'none';
+  if (txt) document.getElementById('overlayText').textContent = txt;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Workspace management
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadWorkspaces(selectName) {
+  try {
+    const res  = await fetch('/api/workspaces');
+    const list = await res.json();
+    const sel  = document.getElementById('wsSelect');
+    sel.innerHTML = '';
+    if (!list.length) { sel.add(new Option('– no workspace –', '')); sel.disabled = true; return; }
+    sel.disabled = false;
+    list.forEach(w => sel.add(new Option(w.name, w.name)));
+    if (selectName) sel.value = selectName;
+    currentWs = sel.value;
+    await loadPropertyConfig();
+  } catch(e) { console.error('loadWorkspaces', e); }
+}
+
+async function loadPropertyConfig() {
+  if (!currentWs) return;
+  try {
+    const res = await fetch(`/api/workspaces/${currentWs}/props`);
+    if (!res.ok) return;
+    const data = await res.json();
+    propNames = data.names || [];
+    propConfigs.clear();
+    for (const c of (data.configs || []))
+      propConfigs.set(c.name, { visible: c.visible !== false, role: c.role || '' });
+  } catch(e) { console.error('loadPropertyConfig', e); }
+}
+document.getElementById('wsSelect').onchange = () => {
+  currentWs = document.getElementById('wsSelect').value;
+  location.reload();
+};
+async function deleteWorkspace() {
+  if (!currentWs || !confirm(`Delete workspace "${currentWs}"?`)) return;
+  await fetch('/api/workspaces/' + currentWs, { method: 'DELETE' });
+  await loadWorkspaces();
+  resetUI();
+}
+function resetUI() {
+  allFiles = []; fileMap.clear(); currentFile = null; currentDoc = null; currentBom = null;
+  propConfigs.clear(); propNames = [];
+  document.getElementById('viewFiles').innerHTML = '<div class="empty-state">Load a workspace or upload a ZIP</div>';
+  document.getElementById('viewTree').innerHTML  = '<div class="empty-state">Open a file</div>';
+  document.getElementById('detEmpty').style.display = '';
+  document.getElementById('detContent').style.display = 'none';
+  document.getElementById('bomEmpty').style.display = 'flex';
+  document.getElementById('bomContent').style.display = 'none';
+  document.getElementById('docMeta').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ZIP upload
+// ═══════════════════════════════════════════════════════════════════════════
+let dragCtr = 0;
+window.addEventListener('dragenter', e => { e.preventDefault(); dragCtr++; document.getElementById('globalDrop').style.display = 'flex'; });
+window.addEventListener('dragleave', e => { e.preventDefault(); if (--dragCtr === 0) document.getElementById('globalDrop').style.display = 'none'; });
+window.addEventListener('dragover',  e => e.preventDefault());
+window.addEventListener('drop',      e => { e.preventDefault(); dragCtr = 0; document.getElementById('globalDrop').style.display = 'none'; if (e.dataTransfer?.files[0]) upload(e.dataTransfer.files[0]); });
+document.getElementById('dropZone').onclick = () => document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange = e => upload(e.target.files[0]);
+
+async function upload(file) {
+  if (!file) return;
+  showLoading(true, 'Creating workspace…');
+  const fd = new FormData(); fd.append('file', file);
+  try {
+    const res   = await fetch('/upload', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error(await res.text());
+    const files = await res.json();
+    if (files.length) {
+      await loadWorkspaces(files[0].session);
+      processFileList(files);
+      setStatus(`${files.length} files loaded`);
+      // Re-fetch property config after new docs are analyzed on demand.
+      // (Index grows as files get opened; user can refresh via Settings.)
+    }
+  } catch(e) { alert('Error: ' + e); setStatus('Upload failed', true); }
+  finally { showLoading(false); }
+}
+
+function processFileList(files) {
+  allFiles = files.sort((a, b) => a.name.localeCompare(b.name));
+  fileMap.clear();
+  allFiles.forEach(f => fileMap.set(f.name.toLowerCase(), f));
+  renderFileList();
+  setSbMode('files');
+  document.getElementById('viewTree').innerHTML = '<div class="empty-state">Open a file</div>';
+  currentFile = null; currentDoc = null; currentBom = null;
+}
+
+// ── Helper: load file by relative path (safe for use in onclick attrs) ───────
+function loadFileByRelPath(relPath) {
+  const f = allFiles.find(x => x.rel_path === relPath);
+  if (f) loadFile(null, f);
+  else setStatus('Not in workspace: ' + relPath, true);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sidebar: file list
+// ═══════════════════════════════════════════════════════════════════════════
+function renderFileList() {
+  const filter = document.getElementById('sbFilter').value.toLowerCase();
+  const shown  = allFiles.filter(f =>
+    f.name.toLowerCase().includes(filter) || f.rel_path.toLowerCase().includes(filter));
+  const vf = document.getElementById('viewFiles');
+  if (!shown.length) { vf.innerHTML = '<div class="empty-state">No results</div>'; return; }
+  // Use data-rp to carry the rel_path — avoids embedding raw JSON in onclick.
+  vf.innerHTML = shown.map(f => `
+    <div class="file-item${currentFile?.rel_path === f.rel_path ? ' active' : ''}"
+         data-rp="${esc(f.rel_path)}" onclick="fileItemClick(this)">
+      <span class="file-icon">${fileIcon(f.name)}</span>
+      <div class="file-info">
+        <div class="file-name">${esc(f.name)}</div>
+        <div class="file-path">${esc(f.rel_path)}</div>
+      </div>
+    </div>`).join('');
+}
+function fileItemClick(el) { loadFileByRelPath(el.dataset.rp); }
+document.getElementById('sbFilter').addEventListener('input', () => {
+  if (sbMode === 'files') renderFileList();
+  else filterTree();
+});
+
+function setSbMode(m) {
+  sbMode = m;
+  document.getElementById('tabFiles').classList.toggle('active', m === 'files');
+  document.getElementById('tabTree' ).classList.toggle('active', m === 'tree');
+  document.getElementById('viewFiles').style.display = m === 'files' ? '' : 'none';
+  document.getElementById('viewTree' ).style.display = m === 'tree'  ? '' : 'none';
+}
+function filterTree() {
+  const t = document.getElementById('sbFilter').value.toLowerCase();
+  document.querySelectorAll('#viewTree .nt').forEach(el => {
+    el.closest('li').style.display = !t || el.textContent.toLowerCase().includes(t) ? '' : 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Load file → fetch /api/doc/ → render Details
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadFile(el, f) {
+  if (currentFile?.rel_path === f.rel_path) { showContentTab('details'); return; }
+  currentFile = f;
+  currentBom = null; // invalidate BOM cache
+  // Highlight the matching file-item row (works whether el is passed or not).
+  document.querySelectorAll('.file-item').forEach(x => {
+    x.classList.toggle('active', x.dataset.rp === f.rel_path);
+  });
+
+  showContentTab('details');
+  showLoading(true, `Loading ${f.name}…`);
+  try {
+    const res = await fetch(`/api/doc/${currentWs}/${safeEncode(f.rel_path)}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    currentDoc = await res.json();
+    renderDetails(currentDoc);
+    renderSidebarTree(currentDoc);
+    setSbMode('tree');
+    document.getElementById('docTitle').textContent = f.name;
+    document.getElementById('docBadge').textContent = {1:'Part',2:'Assembly',3:'Drawing'}[currentDoc.doc_type] || '?';
+    document.getElementById('docBadge').className   = 'badge ' + ({1:'badge-part',2:'badge-asm',3:'badge-drw'}[currentDoc.doc_type] || '');
+    document.getElementById('docMeta').style.display = '';
+    setStatus(f.name + ' loaded');
+    // Update property index in background after new doc is analyzed.
+    loadPropertyConfig().catch(() => {});
+  } catch(e) {
+    setStatus('Error: ' + e.message, true);
+  } finally { showLoading(false); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Render document details (inline, no iframe)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderDetails(doc, cfgName) {
+  document.getElementById('detEmpty').style.display   = 'none';
+  document.getElementById('detContent').style.display = '';
+
+  const isDrw = doc.doc_type === 3;
+
+  // ── Config / sheet selector ─────────────────────────────────────────────
+  const sel = document.getElementById('cfgSel');
+  sel.innerHTML = '';
+  if (isDrw) {
+    (doc.sheets || []).forEach((s, i) => sel.add(new Option(s.name, i)));
+  } else {
+    (doc.configurations || []).forEach((c, i) => sel.add(new Option(c.name, i)));
+  }
+  if (cfgName && !isDrw) {
+    const idx = (doc.configurations || []).findIndex(c => c.name === cfgName);
+    if (idx >= 0) sel.value = idx;
+  }
+
+  // ── Inner tabs visibility ────────────────────────────────────────────────
+  document.getElementById('itComps').style.display = doc.doc_type === 2 ? '' : 'none';
+  document.getElementById('itViews').style.display = isDrw ? '' : 'none';
+  // Cut list shown when at least one config has items
+  const hasCut = !isDrw && (doc.configurations || []).some(c => c.cut_list?.length);
+  document.getElementById('itCut').style.display = hasCut ? '' : 'none';
+
+  // ── Populate current config/sheet ────────────────────────────────────────
+  applyConfig();
+}
+
+function applyConfig() {
+  if (!currentDoc) return;
+  const idx = parseInt(document.getElementById('cfgSel').value) || 0;
+  const doc = currentDoc;
+  const isDrw = doc.doc_type === 3;
+
+  let payload = null;
+  if (isDrw) payload = (doc.sheets || [])[idx];
+  else        payload = (doc.configurations || [])[idx];
+
+  // Preview
+  const b64 = payload?.preview_png_base64 || doc.preview_png_base64;
+  const img  = document.getElementById('previewImg');
+  const emp  = document.getElementById('previewEmpty');
+  if (b64) { img.src = 'data:image/png;base64,' + b64; img.style.display = 'block'; emp.style.display = 'none'; }
+  else      { img.src = ''; img.style.display = 'none'; emp.style.display = ''; }
+
+  // Mass properties
+  const mc = document.getElementById('massCard');
+  if (!isDrw && payload?.mass_properties) {
+    const m = payload.mass_properties;
+    mc.style.display = '';
+    document.getElementById('massContent').innerHTML = `
+      <div class="mass-row"><span>Mass</span><span class="mass-val">${m.mass.toFixed(4)} kg</span></div>
+      <div class="mass-row"><span>Volume</span><span class="mass-val">${(m.volume * 1e6).toFixed(2)} cm³</span></div>
+      <div class="mass-row"><span>Surface area</span><span class="mass-val">${(m.surface_area * 1e4).toFixed(2)} cm²</span></div>
+      <div class="mass-row"><span>CoG X</span><span class="mass-val">${(m.center_of_gravity.x*1000).toFixed(2)} mm</span></div>
+      <div class="mass-row"><span>CoG Y</span><span class="mass-val">${(m.center_of_gravity.y*1000).toFixed(2)} mm</span></div>
+      <div class="mass-row"><span>CoG Z</span><span class="mass-val">${(m.center_of_gravity.z*1000).toFixed(2)} mm</span></div>`;
+  } else mc.style.display = 'none';
+
+  // Properties tab: config-level props first, then global props (dimmed).
+  // Respects propConfigs visibility settings.
+  let rows = '';
+  const renderPropRow = (k, v, dimmed) => {
+    const cfg = propConfigs.get(k);
+    if (cfg && !cfg.visible) return '';  // hidden by user config
+    const roleBadge = cfg?.role ? roleBadgeHtml(cfg.role) : '';
+    const style = dimmed ? ' style="color:var(--muted)"' : '';
+    const globalMark = dimmed ? ' <em style="font-size:.7rem">(global)</em>' : '';
+    return `<tr${style}><td>${esc(k)}${globalMark}${roleBadge}</td><td class="prop-val">${esc(v)}</td></tr>`;
+  };
+  if (!isDrw && payload?.properties)
+    Object.entries(payload.properties).forEach(([k,v]) => rows += renderPropRow(k, v, false));
+  if (doc.global_properties)
+    Object.entries(doc.global_properties).forEach(([k,v]) => rows += renderPropRow(k, v, true));
+  document.getElementById('propsTbody').innerHTML = rows || `<tr><td colspan="2" class="empty-state">No properties</td></tr>`;
+
+  // Components tab (assembly)
+  if (doc.doc_type === 2 && payload?.components) {
+    document.getElementById('compsTbody').innerHTML = payload.components.map(c => {
+      const fname = c.path ? c.path.split(/[/\\]/).pop() : c.name;
+      const supp  = c.is_suppressed ? '<span class="tag-sup">SUPPR</span>' : '';
+      const excl  = c.exclude_from_bom ? '<span class="badge badge-warn" style="font-size:.68rem">No-BOM</span>' : '';
+      return `<tr><td><b>${esc(c.name)}</b>${supp}</td><td class="mono">${esc(fname)}</td><td>${esc(c.ref_config)}</td><td>${excl}</td></tr>`;
+    }).join('') || `<tr><td colspan="4" class="empty-state">No components</td></tr>`;
+  }
+
+  // Cut list tab
+  if (payload?.cut_list?.length) {
+    document.getElementById('cutTbody').innerHTML = payload.cut_list.map(item => {
+      const props = Object.entries(item.properties || {}).slice(0, 4)
+                          .map(([k,v]) => `<span style="font-size:.75rem;background:#f1f5f9;padding:1px 5px;border-radius:3px;margin:1px">${esc(k)}: ${esc(v)}</span>`).join(' ');
+      return `<tr><td style="text-align:center;font-weight:700">${item.quantity}</td><td>${esc(item.name)}</td><td>${props}</td></tr>`;
+    }).join('');
+  }
+
+  // Views tab (drawing)
+  if (isDrw && payload?.views) {
+    document.getElementById('viewsTbody').innerHTML = payload.views.map(v =>
+      `<tr><td>${esc(v.name)}</td><td class="mono" style="font-size:.8rem">${esc(v.referenced_document)}</td><td>${esc(v.referenced_config)}</td></tr>`
+    ).join('') || `<tr><td colspan="3" class="empty-state">No views</td></tr>`;
+  }
+
+  showInnerTab('props');
+}
+
+function showInnerTab(name) {
+  document.querySelectorAll('.it-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.it-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('it' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  document.getElementById('ip' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Preview zoom modal
+// ═══════════════════════════════════════════════════════════════════════════
+function zoomPreview() {
+  const src = document.getElementById('previewImg').src;
+  if (!src.startsWith('data:')) return;
+  document.getElementById('modalImg').src = src;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sidebar tree view (populated from document data, no iframe)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderSidebarTree(doc) {
+  const root  = document.getElementById('viewTree');
+  const fname = currentFile?.name || 'File';
+  const icon  = fileIcon(fname);
+
+  let childHtml = '';
+  if (doc.doc_type === 2) {
+    const cfg = (doc.configurations || [])[0];
+    (cfg?.components || []).forEach(c => { childHtml += makeTreeNode(c); });
+  } else if (doc.doc_type === 1) {
+    const cfg = (doc.configurations || [])[0];
+    (cfg?.cut_list || []).forEach(item => {
+      childHtml += `<li><div class="nc" onclick="treeSelectRoot()">
+        <span class="tog empty">·</span><span class="ni">✂</span>
+        <span class="nt">${esc(item.name)}</span>
+        <span class="bq">${item.quantity}×</span>
+      </div></li>`;
+    });
+  } else if (doc.doc_type === 3) {
+    (doc.sheets || []).forEach((sheet, si) => {
+      const viewRows = (sheet.views || []).map(v => {
+        const fi = findFileByName(v.referenced_document);
+        const clickable = fi
+          ? `data-rp="${esc(fi.rel_path)}" onclick="treeNodeClick(this)"`
+          : `onclick="setStatus('File not found: ${esc(v.referenced_document)}',true)"`;
+        return `<li><div class="nc${fi ? '' : ' dis'}" ${clickable}>
+          <span class="tog empty">·</span><span class="ni">👁</span>
+          <span class="nt">${esc(v.name)} (${esc(v.referenced_document)})</span>
+        </div></li>`;
+      }).join('');
+      childHtml += `<li id="sheet${si}">
+        <div class="nc" onclick="treeToggle('sheet${si}');event.stopPropagation()">
+          <span class="tog" id="tog-sheet${si}">-</span><span class="ni">📄</span>
+          <span class="nt">${esc(sheet.name)}</span>
+        </div>
+        <ul class="open">${viewRows}</ul>
+      </li>`;
+    });
+  }
+
+  root.innerHTML = `<ul class="tree" style="padding:4px 0">
+    <li id="treeRoot_">
+      <div class="nc sel" id="treeRootNode" onclick="treeSelectRoot()">
+        <span class="tog${childHtml ? '' : ' empty'}" id="tog-root_"
+              onclick="treeToggle('treeRoot_');event.stopPropagation()">
+          ${childHtml ? '-' : '·'}
+        </span>
+        <span class="ni">${icon}</span>
+        <span class="nt"><b>${esc(fname)}</b></span>
+      </div>
+      <ul class="${childHtml ? 'open' : ''}">${childHtml}</ul>
+    </li>
+  </ul>`;
+}
+
+function makeTreeNode(c) {
+  const fname = c.path ? c.path.split(/[/\\]/).pop() : c.name;
+  const fi    = findFileByName(fname);
+  const sup   = c.is_suppressed;
+  const icon  = sup ? '🚫' : (fname.toLowerCase().endsWith('.sldasm') ? '📦' : '⚙️');
+  const cls   = sup || !fi ? ' dis' : '';
+  const attrs = fi && !sup
+    ? `data-rp="${esc(fi.rel_path)}" onclick="treeNodeClick(this)"` : '';
+  return `<li><div class="nc${cls}" ${attrs}>
+    <span class="tog empty">·</span><span class="ni">${icon}</span>
+    <span class="nt">${esc(c.name)}</span>
+  </div></li>`;
+}
+
+// Select the root file (the one that built this tree) back in the detail pane.
+function treeSelectRoot() {
+  treeSetSel(document.getElementById('treeRootNode'));
+  showContentTab('details');
+  if (currentDoc) renderDetails(currentDoc);
+}
+
+// Select a component node: show its details without rebuilding the tree.
+window.treeNodeClick = function(el) {
+  const relPath = el.dataset.rp;
+  if (!relPath) return;
+  treeSetSel(el);
+  selectTreeNode(relPath);
+};
+
+function treeSetSel(el) {
+  document.querySelectorAll('#viewTree .nc').forEach(n => n.classList.remove('sel'));
+  if (el) el.classList.add('sel');
+}
+
+async function selectTreeNode(relPath) {
+  const f = allFiles.find(x => x.rel_path === relPath);
+  if (!f) { setStatus('Not in workspace: ' + relPath, true); return; }
+  showContentTab('details');
+  showLoading(true, `Loading ${f.name}…`);
+  try {
+    const res = await fetch(`/api/doc/${currentWs}/${safeEncode(relPath)}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const doc = await res.json();
+    renderDetails(doc);
+    setStatus(f.name + ' loaded');
+    // Update property index quietly in background.
+    loadPropertyConfig().catch(() => {});
+  } catch(e) {
+    setStatus('Error: ' + e.message, true);
+  } finally { showLoading(false); }
+}
+
+window.treeToggle = function(id) {
+  const li  = document.getElementById(id);
+  if (!li) return;
+  // The toggle button and child list are always direct children of this <li>.
+  const ul  = li.querySelector(':scope > ul');
+  const tog = li.querySelector(':scope > div .tog');
+  if (!ul || !tog) return;
+  const open = ul.classList.toggle('open');
+  tog.textContent = open ? '-' : '+';
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Content tab switching
+// ═══════════════════════════════════════════════════════════════════════════
+function showContentTab(name) {
+  activeContentTab = name;
+  document.getElementById('ctDetails').classList.toggle('active', name === 'details');
+  document.getElementById('ctBom'    ).classList.toggle('active', name === 'bom');
+  document.getElementById('paneDetails').classList.toggle('active', name === 'details');
+  document.getElementById('paneBom'    ).classList.toggle('active', name === 'bom');
+}
+
+async function activateBomTab() {
+  showContentTab('bom');
+  if (!currentFile) return;
+  if (currentBom) { renderBom(currentBom); return; }
+  showLoading(true, 'Computing BOM…');
+  try {
+    const profileId = document.getElementById('bomProfileSel').value;
+    let url = `/api/bom/${currentWs}/${safeEncode(currentFile.rel_path)}`;
+    if (profileId) url += '?profile=' + encodeURIComponent(profileId);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    currentBom = await res.json();
+    renderBom(currentBom);
+    setStatus('BOM loaded' + (profileId ? ' (profile applied)' : ''));
+  } catch(e) {
+    document.getElementById('bomContent').innerHTML = `<div style="padding:24px;color:var(--red)">Error: ${esc(e.message)}</div>`;
+    document.getElementById('bomEmpty').style.display = 'none';
+    document.getElementById('bomContent').style.display = '';
+    setStatus('BOM error: ' + e.message, true);
+  } finally { showLoading(false); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BOM rendering
+// ═══════════════════════════════════════════════════════════════════════════
+function flattenBomItem(item, depth, posArr, parentId) {
+  const id = 'bom' + bomRows.length;
+  bomRows.push({ id, item, depth, pos: posArr.join('.') || '1', parentId, hasChildren: item.children.length > 0 });
+  bomParentMap.set(id, parentId);
+  // Auto-expand root and first level
+  if (depth < 1) bomExpanded.add(id);
+  item.children.forEach((child, i) => flattenBomItem(child, depth + 1, [...posArr, i + 1], id));
+}
+
+// Re-aggregate bomRows by part_number property when a grouping key is configured.
+// Rows sharing the same (parentId, partNumber) are merged: quantities summed,
+// first occurrence kept, subsequent ones hidden (removed from bomRows).
+function applyPartNumberGrouping() {
+  const pnProp = getPartNumberProp();
+  if (!pnProp) return;  // No grouping key configured — nothing to do.
+
+  const survivors = [];
+  // Key: `${parentId}|${partNumber}` → index in survivors[]
+  const seen = new Map();
+
+  for (const row of bomRows) {
+    const pn = row.item.properties?.[pnProp];
+    if (!pn) { survivors.push(row); continue; }  // No part-number — keep as-is.
+    const key = `${row.parentId ?? ''}|${pn}`;
+    if (seen.has(key)) {
+      // Merge: accumulate quantity into the kept row.
+      const kept = survivors[seen.get(key)];
+      kept.item = { ...kept.item, quantity: kept.item.quantity + row.item.quantity };
+      // Children of merged rows are dropped (they would be duplicates).
+    } else {
+      seen.set(key, survivors.length);
+      survivors.push(row);
+    }
+  }
+
+  bomRows = survivors;
+  // Re-index bomParentMap for the survivors.
+  bomParentMap.clear();
+  bomRows.forEach(r => bomParentMap.set(r.id, r.parentId));
+}
+
+function renderBom(bom) {
+  document.getElementById('bomEmpty').style.display   = 'none';
+  document.getElementById('bomContent').style.display = 'flex';
+
+  bomRows = []; bomExpanded.clear(); bomParentMap.clear(); bomFilter = ''; selectedBomId = null;
+  document.getElementById('bomSearch').value = '';
+  document.getElementById('bomDetail').style.display = 'none';
+  document.getElementById('divBom').style.display    = 'none';
+  flattenBomItem(bom.bom, 0, [1], null);
+  applyPartNumberGrouping();
+
+  drawBomTable();
+
+  // Warnings
+  const wb = document.getElementById('bomWarnBadge');
+  const wp = document.getElementById('bomWarnPanel');
+  const wl = document.getElementById('bomWarnList');
+  if (bom.warnings?.length) {
+    wb.style.display = '';
+    wb.textContent   = '⚠ ' + bom.warnings.length + ' warnings';
+    document.getElementById('bomWarnCount').textContent = '(' + bom.warnings.length + ')';
+    wl.innerHTML = bom.warnings.map(w => `<div class="bom-warn-item">· ${esc(w)}</div>`).join('');
+  } else {
+    wb.style.display = 'none';
+    wp.style.display = 'none';
+  }
+}
+
+function typeInfo(t) {
+  switch (t) {
+    case 'assembly':     return { badge: 'badge-asm',  label: 'Baugr.',  icon: '📦' };
+    case 'part':         return { badge: 'badge-part', label: 'Teil',    icon: '⚙️' };
+    case 'cut_list_item':return { badge: 'badge-cut',  label: 'Schnitt', icon: '✂' };
+    case 'drawing':      return { badge: 'badge-drw',  label: 'Zeichn.', icon: '📐' };
+    default:             return { badge: 'badge-part', label: t,         icon: '📄' };
+  }
+}
+
+function isRowVisible(row) {
+  if (bomFilter) {
+    // When filtering, show all matching rows regardless of collapse state
+    const name  = row.item.name.toLowerCase();
+    const props = Object.values(row.item.properties || {}).join(' ').toLowerCase();
+    return name.includes(bomFilter) || props.includes(bomFilter);
+  }
+  // Check all ancestors are expanded
+  let pid = row.parentId;
+  while (pid !== null) {
+    if (!bomExpanded.has(pid)) return false;
+    pid = bomParentMap.get(pid) ?? null;
+  }
+  return true;
+}
+
+function drawBomTable() {
+  const tbody = document.getElementById('bomTbody');
+  const rows  = bomRows.filter(isRowVisible);
+  tbody.innerHTML = rows.map(row => {
+    const { item, depth, pos, id, hasChildren } = row;
+    const ti  = typeInfo(item.type);
+    const descPropKey = getDescriptionProp(); const desc = (descPropKey && item.properties?.[descPropKey]) || item.properties?.['Description'] || item.properties?.['Beschreibung'] || '';
+    const fi  = item.file_path ? findFileByName(item.file_path.split(/[/\\]/).pop()) : null;
+    const isExpanded = bomExpanded.has(id);
+    const togCls  = hasChildren ? '' : ' leaf';
+    const togChar = hasChildren ? (isExpanded ? '▼' : '▶') : '·';
+    const indentPx = depth * 20;
+
+    const selCls = selectedBomId === id ? ' bom-sel' : '';
+    return `<tr id="tr-${id}" class="${selCls}" onclick="selectBomItem('${id}')" style="cursor:pointer">
+      <td onclick="event.stopPropagation()">
+        <button class="bom-toggle${togCls}" id="btog-${id}"
+          ${hasChildren ? `onclick="toggleBom('${id}')"` : ''}>${togChar}</button>
+      </td>
+      <td class="bom-pos">${esc(pos)}</td>
+      <td>
+        <div class="bom-name-cell">
+          <span style="display:inline-block;width:${indentPx}px;flex-shrink:0"></span>
+          <span class="bom-icon">${ti.icon}</span>
+          <span class="bom-label" title="${esc(item.windows_path || item.file_path)}">${esc(item.name)}</span>
+          ${item.is_suppressed ? '<span class="tag-sup">SUPPR</span>' : ''}
+          ${item.exclude_from_bom ? '<span class="badge badge-warn" style="font-size:.68rem">No-BOM</span>' : ''}
+        </div>
+      </td>
+      <td class="bom-qty">${item.quantity}</td>
+      <td><span class="badge ${ti.badge}">${ti.label}</span></td>
+      <td style="color:var(--muted);font-size:.8rem">${esc(item.configuration)}</td>
+      <td style="color:var(--muted);font-size:.82rem">${esc(desc)}</td>
+      <td onclick="event.stopPropagation()">${fi ? `<button class="bom-open" onclick="loadFileByRelPath('${esc(fi.rel_path)}')">→</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+window.toggleBom = function(id) {
+  if (bomExpanded.has(id)) bomExpanded.delete(id);
+  else                     bomExpanded.add(id);
+  drawBomTable();
+};
+
+function filterBom() {
+  bomFilter = document.getElementById('bomSearch').value.toLowerCase();
+  drawBomTable();
+}
+
+function expandAllBom() {
+  bomRows.forEach(r => { if (r.hasChildren) bomExpanded.add(r.id); });
+  drawBomTable();
+}
+function collapseAllBom() {
+  bomExpanded.clear();
+  // Keep root expanded
+  if (bomRows.length) bomExpanded.add(bomRows[0].id);
+  drawBomTable();
+}
+function toggleBomWarnings() {
+  warnVisible = !warnVisible;
+  document.getElementById('bomWarnPanel').style.display = warnVisible ? '' : 'none';
+}
+
+function exportBomCsv() {
+  if (!currentBom) return;
+  const header = 'Pos,Name,Qty,Type,Configuration,Description,File,Windows Path\n';
+  const lines  = bomRows.map(r => {
+    const { item, pos } = r;
+    const descPropKey = getDescriptionProp(); const desc = (descPropKey && item.properties?.[descPropKey]) || item.properties?.['Description'] || item.properties?.['Beschreibung'] || '';
+    return [pos, item.name, item.quantity, item.type, item.configuration, desc, item.file_path, item.windows_path]
+      .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',');
+  });
+  const blob = new Blob([header + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: (currentFile?.name || 'bom') + '.csv' });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Property config helpers
+// ═══════════════════════════════════════════════════════════════════════════
+const ROLES = [
+  { value: '',            label: '— none —' },
+  { value: 'part_number', label: 'Part Number (grouping key)' },
+  { value: 'description', label: 'Description (BOM column)' },
+  { value: 'material',    label: 'Material' },
+  { value: 'revision',    label: 'Revision' },
+];
+
+function roleBadgeHtml(role) {
+  const map = { part_number:'role-pn', description:'role-desc', material:'role-mat', revision:'role-rev' };
+  if (!role || !map[role]) return '';
+  const label = ROLES.find(r => r.value === role)?.label.split(' ')[0] || role;
+  return ` <span class="role-badge ${map[role]}">${esc(label)}</span>`;
+}
+
+function getPartNumberProp() {
+  for (const [name, cfg] of propConfigs) if (cfg.role === 'part_number') return name;
+  return null;
+}
+function getDescriptionProp() {
+  for (const [name, cfg] of propConfigs) if (cfg.role === 'description') return name;
+  return null;
+}
+
+// ── Settings modal ──────────────────────────────────────────────────────────────────────
+function openSettings() {
+  if (!currentWs) { alert('Load a workspace first.'); return; }
+  document.getElementById('settingsWsLabel').textContent = currentWs;
+  const allNames = new Set([...propNames]);
+  propConfigs.forEach((_, k) => allNames.add(k));
+  const sorted = [...allNames].sort((a, b) => a.localeCompare(b));
+
+  const tbody = document.getElementById('propCfgBody');
+  tbody.innerHTML = sorted.map(name => {
+    const cfg = propConfigs.get(name) || { visible: true, role: '' };
+    const roleOpts = ROLES.map(r =>
+      `<option value="${r.value}"${cfg.role === r.value ? ' selected' : ''}>` + esc(r.label) + '</option>'
+    ).join('');
+    return `<tr>
+      <td style="text-align:center"><input type="checkbox" data-pn="${esc(name)}" ${cfg.visible ? 'checked' : ''}></td>
+      <td>${esc(name)}${roleBadgeHtml(cfg.role)}</td>
+      <td><select class="role-sel" data-rn="${esc(name)}" onchange="updateRoleBadge(this)">${roleOpts}</select></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="3" class="empty-state">No properties indexed yet — open some files first.</td></tr>';
+
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function updateRoleBadge(sel) {
+  const tr = sel.closest('tr');
+  const nameCell = tr.cells[1];
+  const name = sel.dataset.rn;
+  nameCell.innerHTML = esc(name) + roleBadgeHtml(sel.value);
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+async function saveSettings() {
+  const rows = document.querySelectorAll('#propCfgBody tr');
+  const config = [];
+  rows.forEach(tr => {
+    const cb  = tr.querySelector('input[type=checkbox]');
+    const sel = tr.querySelector('select');
+    if (!cb) return;
+    config.push({ name: cb.dataset.pn, visible: cb.checked, role: sel?.value || '' });
+  });
+  propConfigs.clear();
+  config.forEach(c => propConfigs.set(c.name, { visible: c.visible, role: c.role }));
+  closeSettings();
+  fetch(`/api/workspaces/${currentWs}/props`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  }).catch(e => console.error('saveSettings', e));
+  // Update description column header.
+  const descProp = getDescriptionProp();
+  const th = document.getElementById('bomDescCol');
+  if (th) th.textContent = descProp || 'Description';
+  if (currentDoc) applyConfig();
+  if (currentBom) drawBomTable();
+  if (selectedBomId) selectBomItem(selectedBomId).catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BOM item detail panel
+// ═══════════════════════════════════════════════════════════════════════════
+async function selectBomItem(id) {
+  selectedBomId = id;
+  // Re-apply selection highlight without full redraw
+  document.querySelectorAll('#bomTbody tr').forEach(tr => {
+    tr.classList.toggle('bom-sel', tr.id === 'tr-' + id);
+  });
+
+  const row = bomRows.find(r => r.id === id);
+  if (!row) return;
+  const item = row.item;
+
+  const panel = document.getElementById('bomDetail');
+  panel.style.display = '';
+  document.getElementById('divBom').style.display = '';
+
+  // Header
+  const ti = typeInfo(item.type);
+  document.getElementById('bdName').textContent = item.name;
+  document.getElementById('bdBadge').textContent = ti.label;
+  document.getElementById('bdBadge').className = 'badge ' + ti.badge;
+  document.getElementById('bdConfigLabel').textContent = item.configuration ? 'Config: ' + item.configuration : '';
+
+  // Reset preview, mass, props
+  const bdImg = document.getElementById('bdPreviewImg');
+  const bdEmp = document.getElementById('bdPreviewEmpty');
+  bdImg.src = ''; bdImg.style.display = 'none'; bdEmp.style.display = '';
+  document.getElementById('bdMassCard').style.display = 'none';
+  document.getElementById('bdPropsTbody').innerHTML =
+    '<tr><td colspan="2" class="empty-state">Loading…</td></tr>';
+
+  // Try to resolve file from workspace
+  const rawPath = item.file_path || item.windows_path || '';
+  const basename = rawPath.split(/[/\\]/).pop();
+  const fi = basename ? findFileByName(basename) : null;
+
+  if (!fi) {
+    let rows = '';
+    if (item.windows_path)
+      rows += `<tr><td>Windows-Pfad</td><td class="prop-val" style="word-break:break-all">${esc(item.windows_path)}</td></tr>`;
+    if (item.configuration)
+      rows += `<tr><td>Configuration</td><td class="prop-val">${esc(item.configuration)}</td></tr>`;
+    if (item.properties)
+      Object.entries(item.properties).forEach(([k,v]) =>
+        rows += `<tr><td>${esc(k)}</td><td class="prop-val">${esc(v)}</td></tr>`);
+    document.getElementById('bdPropsTbody').innerHTML =
+      rows || '<tr><td colspan="2" class="empty-state">File not in workspace</td></tr>';
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/doc/${currentWs}/${safeEncode(fi.rel_path)}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const doc = await res.json();
+
+    // Select matching config
+    const cfg = (doc.configurations || []).find(c => c.name === item.configuration)
+             || (doc.configurations || [])[0];
+
+    // Preview
+    const b64 = cfg?.preview_png_base64 || doc.preview_png_base64;
+    if (b64) {
+      bdImg.src = 'data:image/png;base64,' + b64;
+      bdImg.style.display = 'block';
+      bdEmp.style.display = 'none';
+    }
+
+    // Mass properties
+    if (cfg?.mass_properties) {
+      const m = cfg.mass_properties;
+      document.getElementById('bdMassCard').style.display = '';
+      document.getElementById('bdMassContent').innerHTML =
+        `<div class="mass-row"><span>Mass</span><span class="mass-val">${m.mass.toFixed(4)} kg</span></div>
+         <div class="mass-row"><span>Volume</span><span class="mass-val">${(m.volume * 1e6).toFixed(2)} cm³</span></div>
+         <div class="mass-row"><span>Surface area</span><span class="mass-val">${(m.surface_area * 1e4).toFixed(2)} cm²</span></div>
+         <div class="mass-row"><span>CoG X</span><span class="mass-val">${(m.center_of_gravity.x*1000).toFixed(2)} mm</span></div>
+         <div class="mass-row"><span>CoG Y</span><span class="mass-val">${(m.center_of_gravity.y*1000).toFixed(2)} mm</span></div>
+         <div class="mass-row"><span>CoG Z</span><span class="mass-val">${(m.center_of_gravity.z*1000).toFixed(2)} mm</span></div>`;
+    }
+
+    // Properties
+    let rows = '';
+    if (cfg?.properties)
+      Object.entries(cfg.properties).forEach(([k,v]) =>
+        rows += `<tr><td>${esc(k)}</td><td class="prop-val">${esc(v)}</td></tr>`);
+    if (doc.global_properties)
+      Object.entries(doc.global_properties).forEach(([k,v]) =>
+        rows += `<tr style="color:var(--muted)"><td>${esc(k)}</td><td class="prop-val">${esc(v)}</td></tr>`);
+    document.getElementById('bdPropsTbody').innerHTML =
+      rows || '<tr><td colspan="2" class="empty-state">No properties</td></tr>';
+
+  } catch(e) {
+    document.getElementById('bdPropsTbody').innerHTML =
+      `<tr><td colspan="2" class="empty-state" style="color:var(--red)">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function zoomBdPreview() {
+  const src = document.getElementById('bdPreviewImg').src;
+  if (!src.startsWith('data:')) return;
+  document.getElementById('modalImg').src = src;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Resizable pane splitters
+// ═══════════════════════════════════════════════════════════════════════════
+
+// makeSplitter(dividerId, paneSel, opts)
+//   dividerId  — id of the .pane-divider element
+//   paneSel    — CSS selector of the pane whose WIDTH is controlled
+//   opts.min   — minimum width in px  (default 120)
+//   opts.max   — maximum width in px  (default 900)
+//   opts.key   — localStorage key suffix
+//   opts.reverse — true if dragging RIGHT makes the pane SMALLER (right-side panels)
+function makeSplitter(dividerId, paneSel, opts) {
+  const { min = 120, max = 900, key, reverse = false } = opts || {};
+  const divider = document.getElementById(dividerId);
+  if (!divider) return;
+
+  function getPane() { return document.querySelector(paneSel); }
+  function applyW(w) {
+    const el = getPane();
+    if (el) el.style.width = w + 'px';
+  }
+
+  // Restore persisted width from a previous session.
+  const saved = localStorage.getItem('pw:' + key);
+  if (saved) applyW(Math.max(min, Math.min(max, +saved)));
+
+  divider.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const pane   = getPane();
+    const startX = e.clientX;
+    const startW = pane ? pane.getBoundingClientRect().width : 0;
+    divider.classList.add('active');
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(ev) {
+      const delta = reverse ? startX - ev.clientX : ev.clientX - startX;
+      const w = Math.max(min, Math.min(max, startW + delta));
+      applyW(w);
+      localStorage.setItem('pw:' + key, w);
+    }
+    function onUp() {
+      divider.classList.remove('active');
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
+
+function initResizers() {
+  makeSplitter('divSidebar', '.sidebar',    { min: 180, max: 600, key: 'sidebar' });
+  makeSplitter('divDetails', '.det-left',   { min: 150, max: 520, key: 'det-left' });
+  makeSplitter('divBom',     '.bom-detail', { min: 180, max: 600, key: 'bom-detail', reverse: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Profile management
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Thrift field options grouped by target entity.
+const PROFILE_ENTITIES = ['part', 'bom_item', 'bom'];
+const PROFILE_FIELDS = {
+  part: [
+    {value:'number',           label:'number — Part Number (m21_nr)'},
+    {value:'name',             label:'name — Name 1 (m21_name1)'},
+    {value:'name2',            label:'name2 — Name 2 (m21_name2)'},
+    {value:'name3',            label:'name3 — Name 3 (m21_name3)'},
+    {value:'name4',            label:'name4 — Name 4 (u170_ben4)'},
+    {value:'materialId',       label:'materialId — Material (m21_wks2)'},
+    {value:'drawingNumber',    label:'drawingNumber — Drawing Nr. (m21_zchg)'},
+    {value:'kind',             label:'kind — Kind/Art (u170_art)'},
+    {value:'weight',           label:'weight — Weight (m21_gewic)'},
+    {value:'creator',          label:'creator — Creator (m21_sabe)'},
+    {value:'editor',           label:'editor — Editor (m21_aend)'},
+    {value:'replacedByNumber', label:'replacedByNumber — Replaced by (m21_altnr)'},
+  ],
+  bom_item: [
+    {value:'version',    label:'version (s03_vercad)'},
+    {value:'note1',      label:'note1 — Note 1 (s03_bez1)'},
+    {value:'note2',      label:'note2 — Note 2 (s03_bez2)'},
+    {value:'note3',      label:'note3 — Note 3 (s03_bez3)'},
+    {value:'extRef',     label:'extRef — External Reference'},
+    {value:'costCenter', label:'costCenter — Cost Center (s03_kost)'},
+    {value:'refItemNo',  label:'refItemNo — Drawing Pos. Nr. (s03_posnx)'},
+  ],
+  bom: [
+    {value:'version',     label:'version — CAD Version (s02_vercad)'},
+    {value:'note1',       label:'note1 — Note 1 (s02_bem1)'},
+    {value:'note2',       label:'note2 — Note 2 (s02_bem2)'},
+    {value:'changeIndex', label:'changeIndex — Change Index (s02_index)'},
+  ],
+};
+
+const RULE_TYPES = [
+  {value:'kaufgruppe', label:'Kaufgruppe — keep item, remove children'},
+  {value:'non_bom',   label:'NonBom — exclude item entirely'},
+  {value:'phantom',   label:'Phantom — exclude item, promote children'},
+];
+
+let profiles = [];          // [{id, name, description}]
+let editingProfileId = null; // currently open profile id (or null for new)
+
+function fieldOptsHtml(entity, selectedField) {
+  const fields = PROFILE_FIELDS[entity] || [];
+  return fields.map(f =>
+    '<option value="' + esc(f.value) + '"' + (f.value === selectedField ? ' selected' : '') + '>' + esc(f.label) + '</option>'
+  ).join('');
+}
+
+function entityOptsHtml(selectedEntity) {
+  return PROFILE_ENTITIES.map(e =>
+    '<option value="' + esc(e) + '"' + (e === selectedEntity ? ' selected' : '') + '>' + esc(e) + '</option>'
+  ).join('');
+}
+
+function ruleTypeOptsHtml(selectedType) {
+  return RULE_TYPES.map(r =>
+    '<option value="' + esc(r.value) + '"' + (r.value === selectedType ? ' selected' : '') + '>' + esc(r.label) + '</option>'
+  ).join('');
+}
+
+function ruleBadgeCls(rt) {
+  return {kaufgruppe:'rule-kg', non_bom:'rule-ns', phantom:'rule-ph'}[rt] || '';
+}
+
+async function loadProfiles() {
+  try {
+    const res = await fetch('/api/profiles');
+    profiles = await res.json();
+    renderProfileList();
+    populateBomProfileSelector();
+  } catch(e) { console.error('loadProfiles', e); }
+}
+
+function populateBomProfileSelector() {
+  const sel = document.getElementById('bomProfileSel');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— No profile —</option>' +
+    profiles.map(p => '<option value="' + p.id + '"' + (String(p.id) === cur ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
+}
+
+function renderProfileList() {
+  const el = document.getElementById('profListItems');
+  if (!profiles.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:16px;font-size:.82rem">No profiles yet</div>';
+    return;
+  }
+  el.innerHTML = profiles.map(p =>
+    '<div class="prof-item' + (editingProfileId === p.id ? ' sel' : '') + '" id="profItem' + p.id + '" onclick="editProfile(' + p.id + ')">' +
+      '<span class="prof-item-name" title="' + esc(p.description) + '">' + esc(p.name) + '</span>' +
+      '<span class="prof-del" onclick="event.stopPropagation();deleteProfile(' + p.id + ')" title="Delete">✕</span>' +
+    '</div>'
+  ).join('');
+}
+
+function refreshPropNamesList() {
+  const dl = document.getElementById('propNamesList');
+  dl.innerHTML = propNames.map(n => '<option value="' + esc(n) + '">').join('');
+}
+
+function openProfiles() {
+  refreshPropNamesList();
+  document.getElementById('profileModal').style.display = 'flex';
+  loadProfiles();
+}
+function closeProfiles() {
+  document.getElementById('profileModal').style.display = 'none';
+}
+
+function showEditor(show) {
+  document.getElementById('profEditEmpty').style.display   = show ? 'none' : '';
+  document.getElementById('profEditContent').style.display = show ? 'flex' : 'none';
+}
+
+function startNewProfile() {
+  editingProfileId = null;
+  document.getElementById('profName').value = '';
+  document.getElementById('profDesc').value = '';
+  document.getElementById('mappingsTbody').innerHTML = '';
+  document.getElementById('rulesTbody').innerHTML    = '';
+  renderProfileList();
+  showEditor(true);
+}
+
+async function editProfile(id) {
+  editingProfileId = id;
+  renderProfileList();
+  showEditor(true);
+  try {
+    const res = await fetch('/api/profiles/' + id);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const p = await res.json();
+    document.getElementById('profName').value = p.name || '';
+    document.getElementById('profDesc').value = p.description || '';
+    renderMappingsTable(p.mappings || []);
+    renderRulesTable(p.rules || []);
+  } catch(e) { console.error('editProfile', e); }
+}
+
+function renderMappingsTable(mappings) {
+  const tbody = document.getElementById('mappingsTbody');
+  tbody.innerHTML = mappings.map((m, i) => mappingRowHtml(m, i)).join('');
+}
+
+function mappingRowHtml(m, i) {
+  const entity = m.target_entity || 'part';
+  const fieldOpts = fieldOptsHtml(entity, m.target_field || '');
+  return '<tr id="mrow' + i + '">' +
+    '<td><input class="dyn-inp" list="propNamesList" value="' + esc(m.sw_property || '') + '" placeholder="e.g. Artikelnummer"></td>' +
+    '<td><select class="dyn-sel" onchange="onEntityChange(this)">' + entityOptsHtml(entity) + '</select></td>' +
+    '<td><select class="dyn-sel">' + fieldOpts + '</select></td>' +
+    '<td><button class="dyn-del" onclick="this.closest(\'tr\').remove()">✕</button></td>' +
+  '</tr>';
+}
+
+function onEntityChange(sel) {
+  const tr = sel.closest('tr');
+  const fieldSel = tr.querySelectorAll('select')[1];
+  fieldSel.innerHTML = fieldOptsHtml(sel.value, '');
+}
+
+function addMapping() {
+  const tbody = document.getElementById('mappingsTbody');
+  const idx = tbody.rows.length;
+  const tr = document.createElement('tr');
+  tr.id = 'mrow' + idx;
+  tr.innerHTML =
+    '<td><input class="dyn-inp" list="propNamesList" placeholder="e.g. Artikelnummer"></td>' +
+    '<td><select class="dyn-sel" onchange="onEntityChange(this)">' + entityOptsHtml('part') + '</select></td>' +
+    '<td><select class="dyn-sel">' + fieldOptsHtml('part', '') + '</select></td>' +
+    '<td><button class="dyn-del" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tbody.appendChild(tr);
+}
+
+function renderRulesTable(rules) {
+  const tbody = document.getElementById('rulesTbody');
+  tbody.innerHTML = rules.map((r, i) => ruleRowHtml(r, i)).join('');
+}
+
+function ruleRowHtml(r, i) {
+  return '<tr>' +
+    '<td><select class="dyn-sel">' + ruleTypeOptsHtml(r.rule_type || 'kaufgruppe') + '</select></td>' +
+    '<td><input class="dyn-inp" value="' + esc(r.property_name || '') + '" placeholder="e.g. Art"></td>' +
+    '<td><input class="dyn-inp" value="' + esc(r.property_value || '') + '" placeholder="e.g. KG"></td>' +
+    '<td><button class="dyn-del" onclick="this.closest(\'tr\').remove()">✕</button></td>' +
+  '</tr>';
+}
+
+function addRule() {
+  const tbody = document.getElementById('rulesTbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><select class="dyn-sel">' + ruleTypeOptsHtml('kaufgruppe') + '</select></td>' +
+    '<td><input class="dyn-inp" placeholder="e.g. Art"></td>' +
+    '<td><input class="dyn-inp" placeholder="e.g. KG"></td>' +
+    '<td><button class="dyn-del" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tbody.appendChild(tr);
+}
+
+async function saveProfile() {
+  const name = document.getElementById('profName').value.trim();
+  if (!name) { alert('Profile name is required.'); return; }
+
+  // Collect mappings
+  const mappings = [];
+  document.querySelectorAll('#mappingsTbody tr').forEach(tr => {
+    const [inp, entSel, fieldSel] = tr.querySelectorAll('input, select');
+    const swProp = inp?.value?.trim();
+    if (swProp && entSel && fieldSel)
+      mappings.push({ sw_property: swProp, target_entity: entSel.value, target_field: fieldSel.value });
+  });
+
+  // Collect rules
+  const rules = [];
+  document.querySelectorAll('#rulesTbody tr').forEach(tr => {
+    const sels = tr.querySelectorAll('select');
+    const inps = tr.querySelectorAll('input');
+    const pn = inps[0]?.value?.trim();
+    const pv = inps[1]?.value?.trim();
+    if (sels[0] && pn && pv)
+      rules.push({ rule_type: sels[0].value, property_name: pn, property_value: pv });
+  });
+
+  const payload = {
+    name,
+    description: document.getElementById('profDesc').value.trim(),
+    mappings,
+    rules,
+  };
+
+  try {
+    if (editingProfileId === null) {
+      // Create new
+      const res = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: payload.name, description: payload.description}),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const created = await res.json();
+      editingProfileId = created.id;
+      payload.id = created.id;
+      // Save mappings+rules
+      await fetch('/api/profiles/' + editingProfileId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+    } else {
+      payload.id = editingProfileId;
+      const res = await fetch('/api/profiles/' + editingProfileId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    }
+    await loadProfiles();
+  } catch(e) { alert('Save failed: ' + e); }
+}
+
+async function deleteProfile(id) {
+  if (!confirm('Delete this profile?')) return;
+  await fetch('/api/profiles/' + id, {method: 'DELETE'});
+  if (editingProfileId === id) { editingProfileId = null; showEditor(false); }
+  await loadProfiles();
+}
+
+// BOM profile selector change: refetch BOM with chosen profile applied.
+async function onBomProfileChange() {
+  if (!currentFile) return;
+  currentBom = null;  // invalidate cached BOM
+  showContentTab('bom');
+  const profileId = document.getElementById('bomProfileSel').value;
+  showLoading(true, 'Computing BOM…');
+  try {
+    let url = '/api/bom/' + currentWs + '/' + safeEncode(currentFile.rel_path);
+    if (profileId) url += '?profile=' + encodeURIComponent(profileId);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    currentBom = await res.json();
+    renderBom(currentBom);
+    setStatus('BOM loaded' + (profileId ? ' (profile applied)' : ''));
+  } catch(e) {
+    setStatus('BOM error: ' + e.message, true);
+  } finally { showLoading(false); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Boot
+// ═══════════════════════════════════════════════════════════════════════════
+initResizers();
+loadWorkspaces();
+loadProfiles();
+</script>
+</body>
+</html>
