@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM debian:bookworm-slim AS builder
+FROM debian:trixie-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     cmake \
     git \
+    libasio-dev \
     libpugixml-dev \
     libsqlite3-dev \
     libzip-dev \
@@ -23,7 +24,7 @@ COPY . .
 RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 RUN cmake --build build -j"$(nproc)" --target asmbox swx_dump swx_scan
 
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -32,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpugixml1v5 \
     libsqlite3-0 \
     libstdc++6 \
-    libzip4 \
+    libzip5 \
     zlib1g \
   && rm -rf /var/lib/apt/lists/*
 
