@@ -29,7 +29,7 @@ include(FetchContent)
 FetchContent_Declare(
   crow
   GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
-  GIT_TAG        v1.2.0
+  GIT_TAG        v1.3.3
   GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(crow)
@@ -49,6 +49,7 @@ add_executable(asmbox
   src/sw/document_analyzer.cc
   src/storage/sqlite_storage.cc
   src/utils/string_utils.cc
+  src/utils/zip_extractor.cc
 )
 target_include_directories(asmbox PRIVATE src)
 # Pull third-party headers in as SYSTEM includes so our -Wall/-Wconversion
@@ -94,12 +95,15 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 add_executable(asmbox_tests
   tests/utils_test.cc
+  tests/zip_extractor_test.cc
   src/utils/string_utils.cc
+  src/utils/zip_extractor.cc
 )
 target_include_directories(asmbox_tests PRIVATE src)
 target_link_libraries(asmbox_tests PRIVATE
   GTest::gtest_main
   plog::plog
+  libzip::zip
 )
 include(GoogleTest)
 gtest_discover_tests(asmbox_tests)
