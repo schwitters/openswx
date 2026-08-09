@@ -81,29 +81,19 @@ add_custom_command(TARGET asmbox POST_BUILD
 add_executable(swx_dump src/linux/swx_dump.cc)
 target_link_libraries(swx_dump PRIVATE openswx nlohmann_json::nlohmann_json)
 
-# ── Tests ─────────────────────────────────────────────────────────────────────
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        v1.15.2
-  GIT_SHALLOW    TRUE
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
-enable_testing()
-add_executable(asmbox_tests
-  tests/utils_test.cc
-  tests/zip_extractor_test.cc
-  src/utils/string_utils.cc
-  src/utils/zip_extractor.cc
-)
-target_include_directories(asmbox_tests PRIVATE src)
-target_link_libraries(asmbox_tests PRIVATE
-  GTest::gtest_main
-  plog::plog
-  libzip::zip
-)
-include(GoogleTest)
-gtest_discover_tests(asmbox_tests)
+if(BUILD_TESTING)
+  add_executable(asmbox_tests
+    tests/utils_test.cc
+    tests/zip_extractor_test.cc
+    src/utils/string_utils.cc
+    src/utils/zip_extractor.cc
+  )
+  target_include_directories(asmbox_tests PRIVATE src)
+  target_link_libraries(asmbox_tests PRIVATE
+    GTest::gtest_main
+    plog::plog
+    libzip::zip
+  )
+  include(GoogleTest)
+  gtest_discover_tests(asmbox_tests)
+endif()

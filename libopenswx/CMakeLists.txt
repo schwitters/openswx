@@ -40,6 +40,24 @@ target_compile_options(openswx PRIVATE
     /W4 /permissive- /utf-8>
 )
 
+if(BUILD_TESTING)
+  add_executable(libopenswx_tests
+    tests/decompressor_test.cc
+    tests/modern_parser_test.cc
+    tests/ole2_parser_test.cc
+  )
+  target_include_directories(libopenswx_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+  )
+  target_link_libraries(libopenswx_tests PRIVATE
+    openswx
+    GTest::gtest_main
+    ZLIB::ZLIB
+  )
+  include(GoogleTest)
+  gtest_discover_tests(libopenswx_tests)
+endif()
+
 # Optional: install targets for use as a sub-project.
 install(TARGETS openswx EXPORT openswxTargets ARCHIVE DESTINATION lib)
 install(DIRECTORY include/ DESTINATION include)
