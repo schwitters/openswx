@@ -206,7 +206,46 @@ stable error categories.
 
 ---
 
-### 4. Configuration via environment variables
+### 4. Container image
+
+Build the image locally:
+
+```bash
+docker build -t openswx:latest .
+```
+
+Run `asmbox` with persistent workspace data:
+
+```bash
+docker run --rm \
+  -p 8087:8087 \
+  -v openswx-data:/data \
+  openswx:latest
+```
+
+Run `swx_dump` directly through `--entrypoint`:
+
+```bash
+docker run --rm \
+  --entrypoint swx_dump \
+  -v "$PWD:/files:ro" \
+  openswx:latest \
+  /files/example.SLDPRT
+```
+
+The same image also works with `podman`, for example:
+
+```bash
+podman build -t openswx:latest .
+podman run --rm -p 8087:8087 -v openswx-data:/data openswx:latest
+```
+
+The image runs as a non-root user, exposes port `8087`, stores persistent
+state in `/data`, and includes `asmbox`, `swx_dump`, and `swx_scan`.
+
+---
+
+### 5. Configuration via environment variables
 
 All settings use the `ASMBOX_` prefix and have sensible defaults:
 
@@ -231,7 +270,7 @@ ASMBOX_TEMPLATE_DIR=/usr/share/asmbox/templates \
 
 ---
 
-### 5. Using libopenswx in your own project
+### 6. Using libopenswx in your own project
 
 Add libopenswx as a subdirectory and link against it:
 
@@ -266,7 +305,7 @@ for (const auto& cfg : doc.configurations) {
 
 ---
 
-### 6. Using libopenbom in your own project
+### 7. Using libopenbom in your own project
 
 Add both libraries and link:
 

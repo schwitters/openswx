@@ -92,6 +92,10 @@ target_link_libraries(swx_scan PRIVATE
 )
 
 if(BUILD_TESTING)
+  find_program(PODMAN_EXECUTABLE podman)
+  find_program(DOCKER_EXECUTABLE docker)
+  find_program(CURL_EXECUTABLE curl)
+
   add_executable(asmbox_tests
     tests/swx_scan_test.cc
     tests/utils_test.cc
@@ -110,4 +114,23 @@ if(BUILD_TESTING)
   )
   include(GoogleTest)
   gtest_discover_tests(asmbox_tests)
+
+  if((PODMAN_EXECUTABLE OR DOCKER_EXECUTABLE) AND CURL_EXECUTABLE)
+    if(PODMAN_EXECUTABLE)
+      set(OPENSWX_CONTAINER_BIN "${PODMAN_EXECUTABLE}")
+    else()
+      set(OPENSWX_CONTAINER_BIN "${DOCKER_EXECUTABLE}")
+    endif()
+    add_test(
+      NAME docker_smoke_test
+      COMMAND ${CMAKE_COMMAND} -E env
+        CONTAINER_BIN=${OPENSWX_CONTAINER_BIN}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/docker_smoke_test.sh
+        openswx:test
+        ${CMAKE_SOURCE_DIR}
+    )
+    set_tests_properties(docker_smoke_test PROPERTIES
+      SKIP_REGULAR_EXPRESSION "\\[  SKIPPED \\]"
+    )
+  endif()
 endif()
