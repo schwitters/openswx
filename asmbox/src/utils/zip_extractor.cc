@@ -3,7 +3,9 @@
 
 #include "utils/zip_extractor.h"
 
+#include <errno.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <zip.h>
 
 #include <algorithm>
@@ -28,6 +30,18 @@ using ZipSourcePtr = std::unique_ptr<zip_source_t, decltype(&zip_source_free)>;
 
 constexpr std::size_t kCopyBufferSize = 64 * 1024;
 
+enum class PathStatusKind {
+  kMissing,
+  kDirectory,
+  kSymlink,
+  kOther,
+};
+
+struct PathStatus {
+  PathStatusKind kind = PathStatusKind::kMissing;
+  std::string error_message;
+};
+
 std::string ZipErrorToString(const zip_error_t& error) {
   zip_error_t mutable_error = error;
   return zip_error_strerror(&mutable_error);
@@ -37,6 +51,28 @@ std::string NormalizeEntryName(std::string_view entry_name) {
   std::string normalized(entry_name);
   std::replace(normalized.begin(), normalized.end(), '\\', '/');
   return normalized;
+}
+
+PathStatus GetPathStatus(const fs::path& path) {
+  struct stat stat_buffer {};
+  if (lstat(path.c_str(), &stat_buffer) == 0) {
+    if (S_ISLNK(stat_buffer.st_mode)) {
+      return {.kind = PathStatusKind::kSymlink};
+    }
+    if (S_ISDIR(stat_buffer.st_mode)) {
+      return {.kind = PathStatusKind::kDirectory};
+    }
+    return {.kind = PathStatusKind::kOther};
+  }
+
+  if (errno == ENOENT) {
+    return {.kind = PathStatusKind::kMissing};
+  }
+
+  return {
+      .kind = PathStatusKind::kOther,
+      .error_message = "Cannot inspect extracted path: " + path.string(),
+  };
 }
 
 bool IsWindowsAbsolutePath(std::string_view entry_name) {
@@ -84,19 +120,17 @@ ZipExtractionResult EnsureDirectoryInsideRoot(const fs::path& root,
 
     current /= component;
 
-    std::error_code status_error;
-    const fs::file_status status = fs::symlink_status(current, status_error);
-    if (status_error) {
-      return ZipExtractionResult::Err(
-          "Cannot inspect extracted path: " + current.string());
+    const PathStatus path_status = GetPathStatus(current);
+    if (!path_status.error_message.empty()) {
+      return ZipExtractionResult::Err(path_status.error_message);
     }
 
-    if (fs::exists(status)) {
-      if (fs::is_symlink(status)) {
+    if (path_status.kind != PathStatusKind::kMissing) {
+      if (path_status.kind == PathStatusKind::kSymlink) {
         return ZipExtractionResult::Err(
             "ZIP entry would traverse through a symlink: " + current.string());
       }
-      if (!fs::is_directory(status)) {
+      if (path_status.kind != PathStatusKind::kDirectory) {
         return ZipExtractionResult::Err(
             "ZIP entry collides with a non-directory path: " +
             current.string());
@@ -134,13 +168,19 @@ bool IsSymlinkMode(zip_uint8_t opsys, zip_uint32_t attributes) {
   return (mode & S_IFMT) == S_IFLNK;
 }
 
+bool IsDirectoryMode(zip_uint8_t opsys, zip_uint32_t attributes) {
+  if (opsys != ZIP_OPSYS_UNIX) return false;
+  const mode_t mode = static_cast<mode_t>((attributes >> 16) & 0xFFFFu);
+  return (mode & S_IFMT) == S_IFDIR;
+}
+
 bool IsSupportedFileType(zip_uint8_t opsys, zip_uint32_t attributes,
                          bool directory_entry) {
   if (opsys != ZIP_OPSYS_UNIX) return true;
   const mode_t mode = static_cast<mode_t>((attributes >> 16) & 0xFFFFu);
   const mode_t file_type = mode & S_IFMT;
   if (file_type == 0) return true;
-  if (directory_entry) return file_type == S_IFDIR;
+  if (directory_entry) return true;
   return file_type == S_IFREG;
 }
 
@@ -199,16 +239,29 @@ ZipExtractionResult ExtractFile(zip_t* archive, zip_uint64_t index,
         "ZIP entry escapes the extraction directory: " + output_path.string());
   }
 
-  std::error_code status_error;
-  const fs::file_status existing_status = fs::symlink_status(output_path,
-                                                             status_error);
-  if (status_error) {
+  const PathStatus output_status = GetPathStatus(output_path);
+  if (!output_status.error_message.empty()) {
     return ZipExtractionResult::Err("Cannot inspect output path: " +
                                     output_path.string());
   }
-  if (fs::exists(existing_status) && fs::is_symlink(existing_status)) {
+  if (output_status.kind == PathStatusKind::kSymlink) {
     return ZipExtractionResult::Err(
         "ZIP entry would overwrite a symlink: " + output_path.string());
+  }
+  if (output_status.kind == PathStatusKind::kDirectory) {
+    return ZipExtractionResult::Err(
+        "ZIP entry collides with a directory path: " + output_path.string());
+  }
+  if (output_status.kind == PathStatusKind::kOther) {
+    // Regular files may be overwritten. Special files were already rejected
+    // via archive metadata when that metadata was available.
+    std::error_code status_error;
+    const fs::file_status existing_status =
+        fs::symlink_status(output_path, status_error);
+    if (!status_error && fs::is_symlink(existing_status)) {
+      return ZipExtractionResult::Err(
+          "ZIP entry would overwrite a symlink: " + output_path.string());
+    }
   }
 
   ZipFilePtr input(zip_fopen_index(archive, index, ZIP_FL_UNCHANGED),
@@ -354,13 +407,17 @@ ZipExtractionResult UnzipToFolder(const std::string& zip_data,
         ValidateEntryPath(canonical_root, entry_name, &relative_path);
     if (!path_result.ok()) return path_result;
 
-    const bool directory_entry = EntryLooksLikeDirectory(entry_name);
-
     zip_uint8_t opsys = ZIP_OPSYS_DEFAULT;
     zip_uint32_t attributes = 0;
-    if (zip_file_get_external_attributes(archive.get(), index,
+    const bool has_external_attributes =
+        zip_file_get_external_attributes(archive.get(), index,
                                          ZIP_FL_UNCHANGED, &opsys,
-                                         &attributes) == 0) {
+                                         &attributes) == 0;
+    const bool directory_entry =
+        EntryLooksLikeDirectory(entry_name) ||
+        (has_external_attributes && IsDirectoryMode(opsys, attributes));
+
+    if (has_external_attributes) {
       if (IsSymlinkMode(opsys, attributes)) {
         return ZipExtractionResult::Err(
             "ZIP symlink entries are not supported: " +
