@@ -81,16 +81,30 @@ add_custom_command(TARGET asmbox POST_BUILD
 add_executable(swx_dump src/linux/swx_dump.cc)
 target_link_libraries(swx_dump PRIVATE openswx nlohmann_json::nlohmann_json)
 
+add_executable(swx_scan
+  src/linux/swx_scan.cc
+  src/swx_scan/scanner.cc
+)
+target_include_directories(swx_scan PRIVATE src)
+target_link_libraries(swx_scan PRIVATE
+  openswx
+  nlohmann_json::nlohmann_json
+)
+
 if(BUILD_TESTING)
   add_executable(asmbox_tests
+    tests/swx_scan_test.cc
     tests/utils_test.cc
     tests/zip_extractor_test.cc
+    src/swx_scan/scanner.cc
     src/utils/string_utils.cc
     src/utils/zip_extractor.cc
   )
   target_include_directories(asmbox_tests PRIVATE src)
   target_link_libraries(asmbox_tests PRIVATE
     GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    openswx
     plog::plog
     libzip::zip
   )

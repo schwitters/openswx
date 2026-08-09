@@ -10,6 +10,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(ZLIB REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 
+set(OPENSWX_GENERATED_INCLUDE_DIR
+    "${CMAKE_CURRENT_BINARY_DIR}/generated_include")
+file(MAKE_DIRECTORY "${OPENSWX_GENERATED_INCLUDE_DIR}/openswx")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/openswx/version.h.in"
+  "${OPENSWX_GENERATED_INCLUDE_DIR}/openswx/version.h"
+  @ONLY
+)
+
 add_library(openswx STATIC
   src/document.cc
   src/internal/decompressor.cc
@@ -22,6 +31,7 @@ add_library(openswx STATIC
 target_include_directories(openswx
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${OPENSWX_GENERATED_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:include>
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
