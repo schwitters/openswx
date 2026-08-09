@@ -5,7 +5,6 @@
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Initializers/ConsoleInitializer.h>
 #include <plog/Log.h>
-#include <zip.h>
 #include <algorithm>
 #include <charconv>
 #include <cstdlib>
@@ -17,6 +16,7 @@
 #include "storage/sqlite_storage.h"
 #include "sw/document_analyzer.h"
 #include "utils/string_utils.h"
+#include "utils/zip_extractor.h"
 
 namespace fs = std::filesystem;
 namespace sw = sw_dumper::sw;
@@ -139,61 +139,6 @@ static void DeleteDirectory(const fs::path& path) {
   } catch (...) {}
 }
 
-// Extracts a ZIP archive (provided as raw bytes) into target_dir.
-static bool UnzipToFolder(const std::string& zip_data,
-                           const fs::path& target_dir) {
-  zip_error_t error;
-  zip_source_t* src =
-      zip_source_buffer_create(zip_data.data(), zip_data.size(), 0, &error);
-  if (!src) return false;
-
-  zip_t* za = zip_open_from_source(src, 0, &error);
-  if (!za) return false;
-
-  try {
-    fs::create_directories(target_dir);
-  } catch (...) {
-    zip_close(za);
-    return false;
-  }
-
-  zip_int64_t num_entries = zip_get_num_entries(za, 0);
-  PLOG_INFO << "Unzipping " << num_entries << " entries...";
-
-  for (zip_int64_t i = 0; i < num_entries; ++i) {
-    zip_stat_t st;
-    zip_stat_index(za, i, 0, &st);
-    if (!(st.valid & ZIP_STAT_NAME)) continue;
-
-    std::string name(st.name);
-    fs::path out_path = target_dir / name;
-
-    try {
-      if (!name.empty() && name.back() == '/') {
-        fs::create_directories(out_path);
-      } else {
-        if (out_path.has_parent_path())
-          fs::create_directories(out_path.parent_path());
-        zip_file_t* zf = zip_fopen_index(za, i, 0);
-        if (zf) {
-          std::ofstream out_file(out_path, std::ios::binary);
-          if (out_file) {
-            std::vector<char> buffer(65536);
-            zip_int64_t n;
-            while ((n = zip_fread(zf, buffer.data(), buffer.size())) > 0)
-              out_file.write(buffer.data(), static_cast<std::streamsize>(n));
-          }
-          zip_fclose(zf);
-        }
-      }
-    } catch (...) {}
-  }
-
-  zip_close(za);
-  PLOG_INFO << "Unzip finished.";
-  return true;
-}
-
 // ── main ─────────────────────────────────────────────────────────────────────
 
 int main() {
@@ -279,8 +224,13 @@ int main() {
               fs::path sandbox = data_dir / workspace;
               DeleteDirectory(sandbox);
 
-              if (!UnzipToFolder(zip_part.body, sandbox))
-                return crow::response(500, "Unzip failed");
+              const utils::ZipExtractionResult unzip_result =
+                  utils::UnzipToFolder(zip_part.body, sandbox);
+              if (!unzip_result.ok()) {
+                PLOG_WARNING << "Rejected ZIP upload: " << unzip_result.error();
+                DeleteDirectory(sandbox);
+                return crow::response(400, unzip_result.error());
+              }
 
               storage->DeleteWorkspace(workspace);
               if (!storage->CreateWorkspace(workspace))
