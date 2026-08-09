@@ -97,10 +97,12 @@ if(BUILD_TESTING)
   find_program(CURL_EXECUTABLE curl)
 
   add_executable(asmbox_tests
+    tests/sqlite_storage_test.cc
     tests/swx_scan_test.cc
     tests/utils_test.cc
     tests/zip_extractor_test.cc
     src/swx_scan/scanner.cc
+    src/storage/sqlite_storage.cc
     src/utils/string_utils.cc
     src/utils/zip_extractor.cc
   )
@@ -110,6 +112,7 @@ if(BUILD_TESTING)
     nlohmann_json::nlohmann_json
     openswx
     plog::plog
+    SQLite::SQLite3
     libzip::zip
   )
   include(GoogleTest)

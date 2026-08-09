@@ -120,11 +120,6 @@ SqliteStorage::SqliteStorage(const std::string& db_path) {
         CREATE TRIGGER IF NOT EXISTS del_cmp_props BEFORE DELETE ON components BEGIN DELETE FROM properties WHERE parent_type='COMP' AND parent_id=OLD.id; END;
         CREATE TRIGGER IF NOT EXISTS del_cut_props BEFORE DELETE ON cut_lists BEGIN DELETE FROM properties WHERE parent_type='CUTLIST' AND parent_id=OLD.id; END;
         CREATE TABLE IF NOT EXISTS property_configs (workspace TEXT NOT NULL, name TEXT NOT NULL, visible INTEGER NOT NULL DEFAULT 1, role TEXT NOT NULL DEFAULT '', PRIMARY KEY (workspace, name), FOREIGN KEY (workspace) REFERENCES workspaces(name) ON DELETE CASCADE);
-        CREATE INDEX IF NOT EXISTS idx_props_parent    ON properties(parent_type, parent_id);
-        CREATE INDEX IF NOT EXISTS idx_bom_items_bom   ON bom_items(bom_id);
-        CREATE INDEX IF NOT EXISTS idx_bom_items_par   ON bom_items(parent_item_id);
-        CREATE INDEX IF NOT EXISTS idx_prof_map_pid    ON profile_mappings(profile_id);
-        CREATE INDEX IF NOT EXISTS idx_prof_rule_pid   ON profile_rules(profile_id);
         CREATE TABLE IF NOT EXISTS boms (
           id          INTEGER PRIMARY KEY AUTOINCREMENT,
           workspace   TEXT    NOT NULL,
@@ -188,6 +183,11 @@ SqliteStorage::SqliteStorage(const std::string& db_path) {
           property_value TEXT    NOT NULL,
           FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
         );
+        CREATE INDEX IF NOT EXISTS idx_props_parent    ON properties(parent_type, parent_id);
+        CREATE INDEX IF NOT EXISTS idx_bom_items_bom   ON bom_items(bom_id);
+        CREATE INDEX IF NOT EXISTS idx_bom_items_par   ON bom_items(parent_item_id);
+        CREATE INDEX IF NOT EXISTS idx_prof_map_pid    ON profile_mappings(profile_id);
+        CREATE INDEX IF NOT EXISTS idx_prof_rule_pid   ON profile_rules(profile_id);
     )";
   Exec(schema);
 }
