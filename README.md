@@ -100,6 +100,7 @@ This produces three binaries inside `build/asmbox/`:
 |--------|-------------|
 | `asmbox` | HTTP server (default port 8087) |
 | `swx_dump` | CLI tool — prints JSON to stdout |
+| `swx_scan` | CLI tool — scans directories and writes anonymized aggregate reports |
 | `asmbox_tests` | Unit test suite |
 
 Run the tests:
@@ -183,7 +184,29 @@ A profile is applied to a BOM request by appending `?profile=<id>` to the URL.
 
 ---
 
-### 3. Configuration via environment variables
+### 3. Scan a directory tree with `swx_scan`
+
+```bash
+./build/asmbox/swx_scan /path/to/archive
+```
+
+This recursively scans `.SLDPRT`, `.SLDASM`, and `.SLDDRW` files and prints
+only aggregate compatibility statistics.  It does not emit filenames, paths,
+ custom properties, configuration names, or other CAD metadata.
+
+To write an anonymized JSON report:
+
+```bash
+./build/asmbox/swx_scan --report report.json /path/to/archive
+```
+
+The JSON report contains only aggregate counters such as total files,
+successful parses, failed parses, document types, detected versions, and
+stable error categories.
+
+---
+
+### 4. Configuration via environment variables
 
 All settings use the `ASMBOX_` prefix and have sensible defaults:
 
@@ -208,7 +231,7 @@ ASMBOX_TEMPLATE_DIR=/usr/share/asmbox/templates \
 
 ---
 
-### 4. Using libopenswx in your own project
+### 5. Using libopenswx in your own project
 
 Add libopenswx as a subdirectory and link against it:
 
@@ -243,7 +266,7 @@ for (const auto& cfg : doc.configurations) {
 
 ---
 
-### 5. Using libopenbom in your own project
+### 6. Using libopenbom in your own project
 
 Add both libraries and link:
 
