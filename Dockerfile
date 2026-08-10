@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     git \
     libasio-dev \
+    libssl-dev \
     libpugixml-dev \
     libsqlite3-dev \
     libzip-dev \
@@ -30,6 +31,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    libssl3t64 \
     libpugixml1v5 \
     libsqlite3-0 \
     libstdc++6 \

@@ -254,6 +254,18 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
 .rule-ns { background:#fee2e2; color:#991b1b; }
 .rule-ph { background:#ede9fe; color:#5b21b6; }
 
+/* ── Auth modal ───────────────────────────────────────────────────────────── */
+#authModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:300; align-items:center; justify-content:center; }
+.auth-box { width:420px; max-width:92vw; background:var(--card); border-radius:10px; box-shadow:0 20px 40px rgba(0,0,0,.25); overflow:hidden; }
+.auth-head { padding:16px 18px; background:var(--bg); border-bottom:1px solid var(--border); }
+.auth-head h2 { margin:0; font-size:1rem; }
+.auth-body { padding:18px; display:flex; flex-direction:column; gap:12px; }
+.auth-input { width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:var(--radius); font-size:.9rem; outline:none; }
+.auth-input:focus { border-color:var(--pri); }
+.auth-actions { display:flex; gap:8px; justify-content:flex-end; }
+.auth-note { font-size:.82rem; color:var(--muted); }
+.auth-error { min-height:1.2em; color:var(--red); font-size:.82rem; }
+
 /* ── Loading overlay ──────────────────────────────────────────────────────── */
 #overlay { display: none; position: absolute; inset: 0; background: rgba(255,255,255,.82); z-index: 50; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(2px); gap: 12px; }
 .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--pri); border-radius: 50%; animation: spin .7s linear infinite; }
@@ -380,11 +392,29 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
         </div>
       </div>
     </div>
-  </div>
+</div>
 </div>
 
 <!-- Datalist for SW property name autocomplete in profile mappings -->
 <datalist id="propNamesList"></datalist>
+
+<div id="authModal">
+  <div class="auth-box">
+    <div class="auth-head">
+      <h2 id="authTitle">Sign in</h2>
+    </div>
+    <div class="auth-body">
+      <div class="auth-note" id="authNote">Sign in to access your private workspaces.</div>
+      <input id="authUsername" class="auth-input" type="text" autocomplete="username" placeholder="Username">
+      <input id="authPassword" class="auth-input" type="password" autocomplete="current-password" placeholder="Password">
+      <div class="auth-error" id="authError"></div>
+      <div class="auth-actions">
+        <button class="btn-secondary" id="authSwitchBtn" onclick="toggleAuthMode()">Create account</button>
+        <button class="btn-primary" id="authSubmitBtn" onclick="submitAuth()">Sign in</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Header ────────────────────────────────────────────────────────────── -->
 <header class="hdr">
@@ -399,6 +429,8 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
   <div style="display:flex;align-items:center;gap:12px">
     <button style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;border-radius:4px;padding:4px 10px;font-size:.85rem" onclick="openProfiles()" title="Manage profiles">📋 Profiles</button>
     <button style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;border-radius:4px;padding:4px 10px;font-size:.85rem" onclick="openSettings()" title="Property settings">⚙ Properties</button>
+    <span id="hdrUser" style="font-size:.84rem;font-weight:600;opacity:.9"></span>
+    <button id="authActionBtn" style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;border-radius:4px;padding:4px 10px;font-size:.85rem" onclick="logout()">Logout</button>
     <div id="hdrStatus" class="hdr-status">Ready</div>
   </div>
 </header>
@@ -561,6 +593,7 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
 let allFiles = [];       // [{name, rel_path, session}]
 let fileMap = new Map(); // lowercase filename → file obj
 let currentWs = "";
+let currentWorkspaceName = "";
 let currentFile = null;
 let currentDoc = null;   // parsed document JSON from /api/doc/
 let currentBom = null;   // BOM JSON from /api/bom/
@@ -572,6 +605,8 @@ let bomParentMap = new Map(); // id → parentId (null for roots)
 let bomFilter = "";
 let warnVisible = false;
 let selectedBomId = null;
+let currentUser = null;
+let authMode = 'login';
 
 // Property configuration state
 // propConfigs: Map<name, {visible:bool, role:string}>
@@ -617,6 +652,88 @@ function showLoading(active, txt) {
   ov.style.display = active ? 'flex' : 'none';
   if (txt) document.getElementById('overlayText').textContent = txt;
 }
+function setCurrentUser(user) {
+  currentUser = user;
+  document.getElementById('hdrUser').textContent = user ? user.username : '';
+  document.getElementById('authActionBtn').style.display = user ? '' : 'none';
+}
+function updateAuthModal() {
+  document.getElementById('authTitle').textContent = authMode === 'login' ? 'Sign in' : 'Create account';
+  document.getElementById('authNote').textContent = authMode === 'login'
+    ? 'Sign in to access your private workspaces.'
+    : 'Create a local account for private workspaces and profiles.';
+  document.getElementById('authSubmitBtn').textContent = authMode === 'login' ? 'Sign in' : 'Create account';
+  document.getElementById('authSwitchBtn').textContent = authMode === 'login' ? 'Create account' : 'Back to sign in';
+  document.getElementById('authPassword').setAttribute('autocomplete', authMode === 'login' ? 'current-password' : 'new-password');
+}
+function openAuthModal(mode) {
+  if (mode) authMode = mode;
+  document.getElementById('authError').textContent = '';
+  updateAuthModal();
+  document.getElementById('authModal').style.display = 'flex';
+}
+function closeAuthModal() {
+  if (currentUser) document.getElementById('authModal').style.display = 'none';
+}
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('authError').textContent = '';
+  updateAuthModal();
+}
+async function submitAuth() {
+  const username = document.getElementById('authUsername').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const err = document.getElementById('authError');
+  err.textContent = '';
+  if (!username || !password) {
+    err.textContent = 'Username and password are required.';
+    return;
+  }
+  try {
+    if (authMode === 'register') {
+      const registerRes = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password}),
+      });
+      if (!registerRes.ok) throw new Error(await registerRes.text());
+      authMode = 'login';
+      updateAuthModal();
+    }
+
+    const loginRes = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    if (!loginRes.ok) throw new Error(await loginRes.text());
+    const user = await loginRes.json();
+    setCurrentUser(user);
+    document.getElementById('authModal').style.display = 'none';
+    await loadProfiles();
+    await loadWorkspaces();
+  } catch (e) {
+    err.textContent = String(e.message || e);
+  }
+}
+async function fetchCurrentUser() {
+  const res = await fetch('/api/auth/me');
+  if (res.status === 401) {
+    setCurrentUser(null);
+    openAuthModal('login');
+    return false;
+  }
+  if (!res.ok) throw new Error('Authentication check failed');
+  setCurrentUser(await res.json());
+  closeAuthModal();
+  return true;
+}
+async function logout() {
+  await fetch('/api/auth/logout', {method: 'POST'});
+  setCurrentUser(null);
+  resetUI();
+  openAuthModal('login');
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Workspace management
@@ -624,14 +741,22 @@ function showLoading(active, txt) {
 async function loadWorkspaces(selectName) {
   try {
     const res  = await fetch('/api/workspaces');
+    if (res.status === 401) { openAuthModal('login'); return; }
     const list = await res.json();
     const sel  = document.getElementById('wsSelect');
     sel.innerHTML = '';
-    if (!list.length) { sel.add(new Option('– no workspace –', '')); sel.disabled = true; return; }
+    if (!list.length) {
+      sel.add(new Option('– no workspace –', ''));
+      sel.disabled = true;
+      currentWs = "";
+      currentWorkspaceName = "";
+      return;
+    }
     sel.disabled = false;
-    list.forEach(w => sel.add(new Option(w.name, w.name)));
+    list.forEach(w => sel.add(new Option(w.name, w.id)));
     if (selectName) sel.value = selectName;
     currentWs = sel.value;
+    currentWorkspaceName = sel.options[sel.selectedIndex]?.text || "";
     await loadPropertyConfig();
   } catch(e) { console.error('loadWorkspaces', e); }
 }
@@ -640,6 +765,7 @@ async function loadPropertyConfig() {
   if (!currentWs) return;
   try {
     const res = await fetch(`/api/workspaces/${currentWs}/props`);
+    if (res.status === 401) { openAuthModal('login'); return; }
     if (!res.ok) return;
     const data = await res.json();
     propNames = data.names || [];
@@ -649,17 +775,20 @@ async function loadPropertyConfig() {
   } catch(e) { console.error('loadPropertyConfig', e); }
 }
 document.getElementById('wsSelect').onchange = () => {
-  currentWs = document.getElementById('wsSelect').value;
+  const sel = document.getElementById('wsSelect');
+  currentWs = sel.value;
+  currentWorkspaceName = sel.options[sel.selectedIndex]?.text || "";
   location.reload();
 };
 async function deleteWorkspace() {
-  if (!currentWs || !confirm(`Delete workspace "${currentWs}"?`)) return;
+  if (!currentWs || !confirm(`Delete workspace "${currentWorkspaceName}"?`)) return;
   await fetch('/api/workspaces/' + currentWs, { method: 'DELETE' });
   await loadWorkspaces();
   resetUI();
 }
 function resetUI() {
   allFiles = []; fileMap.clear(); currentFile = null; currentDoc = null; currentBom = null;
+  currentWs = ""; currentWorkspaceName = "";
   propConfigs.clear(); propNames = [];
   document.getElementById('viewFiles').innerHTML = '<div class="empty-state">Load a workspace or upload a ZIP</div>';
   document.getElementById('viewTree').innerHTML  = '<div class="empty-state">Open a file</div>';
@@ -687,6 +816,7 @@ async function upload(file) {
   const fd = new FormData(); fd.append('file', file);
   try {
     const res   = await fetch('/upload', { method: 'POST', body: fd });
+    if (res.status === 401) { openAuthModal('login'); throw new Error('Authentication required'); }
     if (!res.ok) throw new Error(await res.text());
     const files = await res.json();
     if (files.length) {
@@ -773,6 +903,7 @@ async function loadFile(el, f) {
   showLoading(true, `Loading ${f.name}…`);
   try {
     const res = await fetch(`/api/doc/${currentWs}/${safeEncode(f.rel_path)}`);
+    if (res.status === 401) { openAuthModal('login'); throw new Error('Authentication required'); }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     currentDoc = await res.json();
     renderDetails(currentDoc);
@@ -1277,7 +1408,7 @@ function getDescriptionProp() {
 // ── Settings modal ──────────────────────────────────────────────────────────────────────
 function openSettings() {
   if (!currentWs) { alert('Load a workspace first.'); return; }
-  document.getElementById('settingsWsLabel').textContent = currentWs;
+  document.getElementById('settingsWsLabel').textContent = currentWorkspaceName;
   const allNames = new Set([...propNames]);
   propConfigs.forEach((_, k) => allNames.add(k));
   const sorted = [...allNames].sort((a, b) => a.localeCompare(b));
@@ -1573,6 +1704,7 @@ function ruleBadgeCls(rt) {
 async function loadProfiles() {
   try {
     const res = await fetch('/api/profiles');
+    if (res.status === 401) { openAuthModal('login'); return; }
     profiles = await res.json();
     renderProfileList();
     populateBomProfileSelector();
@@ -1784,6 +1916,7 @@ async function onBomProfileChange() {
     let url = '/api/bom/' + currentWs + '/' + safeEncode(currentFile.rel_path);
     if (profileId) url += '?profile=' + encodeURIComponent(profileId);
     const res = await fetch(url);
+    if (res.status === 401) { openAuthModal('login'); throw new Error('Authentication required'); }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     currentBom = await res.json();
     renderBom(currentBom);
@@ -1797,8 +1930,19 @@ async function onBomProfileChange() {
 // Boot
 // ═══════════════════════════════════════════════════════════════════════════
 initResizers();
-loadWorkspaces();
-loadProfiles();
+document.getElementById('authActionBtn').style.display = 'none';
+updateAuthModal();
+(async () => {
+  try {
+    if (await fetchCurrentUser()) {
+      await loadProfiles();
+      await loadWorkspaces();
+    }
+  } catch (e) {
+    console.error('bootstrap', e);
+    openAuthModal('login');
+  }
+})();
 </script>
 </body>
 </html>

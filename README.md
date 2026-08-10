@@ -63,6 +63,7 @@ A Linux HTTP server that lets you upload a ZIP archive of SolidWorks files and b
 | zlib (`libz-dev`) | any | Raw-deflate decompression in libopenswx |
 | pugixml (`libpugixml-dev`) | 1.11+ | XML parsing in libopenswx |
 | nlohmann/json (`nlohmann-json3-dev`) | 3.x | JSON serialization in asmbox |
+| OpenSSL (`libssl-dev`) | 3.x | Password hashing and session token support in asmbox |
 | SQLite3 (`libsqlite3-dev`) | 3.x | Result caching and BOM persistence in asmbox |
 | libzip (`libzip-dev`) | 1.x | ZIP upload handling in asmbox |
 
@@ -76,7 +77,7 @@ On Debian/Ubuntu, install the system packages with:
 
 ```bash
 sudo apt install cmake build-essential \
-    libz-dev libpugixml-dev nlohmann-json3-dev \
+    libz-dev libssl-dev libpugixml-dev nlohmann-json3-dev \
     libsqlite3-dev libzip-dev
 ```
 
@@ -158,6 +159,10 @@ All mass/geometry values are in SI units (kg, m, m², m³).
 The server starts at `http://0.0.0.0:8087`.
 
 Open `http://localhost:8087` in a browser to reach the upload UI.
+
+On first use, create a local user account in the sign-in dialog. Workspaces and
+profiles are private to the signed-in user and are no longer shared globally
+between browser sessions.
 
 **Upload a ZIP archive** containing one or more SolidWorks files. The server will:
 1. Unpack the archive into `ASMBOX_DATA_DIR/<workspace>/`

@@ -10,6 +10,11 @@
 #include "sqlite_helpers.h"
 
 namespace sw_dumper::storage {
+namespace {
+
+constexpr char kWorkspaceScope[] = "default";
+
+}  // namespace
 
 class SqlTransaction {
   sqlite3* db_;
@@ -190,6 +195,7 @@ SqliteStorage::SqliteStorage(const std::string& db_path) {
         CREATE INDEX IF NOT EXISTS idx_prof_rule_pid   ON profile_rules(profile_id);
     )";
   Exec(schema);
+  Exec("INSERT OR IGNORE INTO workspaces (name) VALUES ('default');");
 }
 
 SqliteStorage::~SqliteStorage() {
@@ -197,52 +203,7 @@ SqliteStorage::~SqliteStorage() {
     sqlite3_close(db_);
 }
 
-bool SqliteStorage::CreateWorkspace(const std::string& name) {
-  if (!db_)
-    return false;
-  sqlite3_stmt* stmt;
-  const char* sql = "INSERT OR REPLACE INTO workspaces (name) VALUES (?);";
-  if (sqlite3_prepare_v2(db_, sql, -1, &stmt, 0) != SQLITE_OK)
-    return false;
-  sqlite3_bind_text(stmt, 1, name.c_str(), -1,
-                    SQLITE_STATIC);  // name is arg, safe
-  int rc = sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-  return (rc == SQLITE_DONE);
-}
-
-std::vector<WorkspaceInfo> SqliteStorage::GetWorkspaces() {
-  std::vector<WorkspaceInfo> res;
-  if (!db_)
-    return res;
-  sqlite3_stmt* stmt;
-  if (sqlite3_prepare_v2(
-          db_,
-          "SELECT name, created_at FROM workspaces ORDER BY created_at DESC;",
-          -1, &stmt, 0) != SQLITE_OK)
-    return res;
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    res.push_back({SafeColumnText(stmt, 0), SafeColumnText(stmt, 1)});
-  }
-  sqlite3_finalize(stmt);
-  return res;
-}
-
-bool SqliteStorage::DeleteWorkspace(const std::string& name) {
-  if (!db_)
-    return false;
-  sqlite3_stmt* stmt;
-  if (sqlite3_prepare_v2(db_, "DELETE FROM workspaces WHERE name=?;", -1, &stmt,
-                         0) != SQLITE_OK)
-    return false;
-  sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
-  int rc = sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-  return (rc == SQLITE_DONE);
-}
-
-bool SqliteStorage::Save(const std::string& sess,
-                         const std::string& path,
+bool SqliteStorage::Save(const std::string& path,
                          const nlohmann::json& d) {
   if (!db_)
     return false;
@@ -255,8 +216,7 @@ bool SqliteStorage::Save(const std::string& sess,
     return false;
 
   std::string fname = std::filesystem::path(path).filename().string();
-  sqlite3_bind_text(stmt, 1, sess.c_str(), -1,
-                    SQLITE_STATIC);  // sess lives long enough
+  sqlite3_bind_text(stmt, 1, kWorkspaceScope, -1, SQLITE_STATIC);
   sqlite3_bind_text(stmt, 2, path.c_str(), -1,
                     SQLITE_STATIC);  // path lives long enough
   sqlite3_bind_text(stmt, 3, fname.c_str(), -1,
@@ -417,8 +377,7 @@ bool SqliteStorage::Save(const std::string& sess,
 
 // Load (Identisch zu 116, da hier keine transienten Strings erzeugt werden,
 // SafeColumnText kopiert)
-bool SqliteStorage::Load(const std::string& sess,
-                         const std::string& path,
+bool SqliteStorage::Load(const std::string& path,
                          nlohmann::json* d) {
   if (!db_)
     return false;
@@ -428,7 +387,7 @@ bool SqliteStorage::Load(const std::string& sess,
       "session_id=? AND rel_path=?;";
   if (sqlite3_prepare_v2(db_, sql, -1, &stmt, 0) != SQLITE_OK)
     return false;
-  sqlite3_bind_text(stmt, 1, sess.c_str(), -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, kWorkspaceScope, -1, SQLITE_STATIC);
   sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
   if (sqlite3_step(stmt) != SQLITE_ROW) {
     sqlite3_finalize(stmt);
@@ -547,21 +506,20 @@ bool SqliteStorage::Load(const std::string& sess,
   return true;
 }
 
-std::string SqliteStorage::GetPartNumberProp(const std::string& workspace) {
+std::string SqliteStorage::GetPartNumberProp() {
   if (!db_) return "";
   sqlite3_stmt* stmt;
   if (sqlite3_prepare_v2(db_,
         "SELECT name FROM property_configs WHERE workspace=? AND role='part_number' LIMIT 1;",
         -1, &stmt, 0) != SQLITE_OK) return "";
-  sqlite3_bind_text(stmt, 1, workspace.c_str(), -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, kWorkspaceScope, -1, SQLITE_STATIC);
   std::string result;
   if (sqlite3_step(stmt) == SQLITE_ROW) result = SafeColumnText(stmt, 0);
   sqlite3_finalize(stmt);
   return result;
 }
 
-bool SqliteStorage::SaveBom(const std::string& workspace,
-                            const std::string& rel_path,
+bool SqliteStorage::SaveBom(const std::string& rel_path,
                             const std::string& configuration,
                             const std::string& part_number_prop,
                             const nlohmann::json& root_item) {
@@ -592,7 +550,7 @@ bool SqliteStorage::SaveBom(const std::string& workspace,
     if (sqlite3_prepare_v2(db_,
           "DELETE FROM boms WHERE workspace=? AND rel_path=? AND configuration=?;",
           -1, &del, 0) == SQLITE_OK) {
-      sqlite3_bind_text(del, 1, workspace.c_str(),     -1, SQLITE_STATIC);
+      sqlite3_bind_text(del, 1, kWorkspaceScope,       -1, SQLITE_STATIC);
       sqlite3_bind_text(del, 2, rel_path.c_str(),      -1, SQLITE_STATIC);
       sqlite3_bind_text(del, 3, configuration.c_str(), -1, SQLITE_STATIC);
       sqlite3_step(del);
@@ -609,7 +567,7 @@ bool SqliteStorage::SaveBom(const std::string& workspace,
 
   std::string root_pn   = get_pn(root_item);
   std::string root_name = get_name(root_item);
-  sqlite3_bind_text(ins_bom, 1, workspace.c_str(),     -1, SQLITE_STATIC);
+  sqlite3_bind_text(ins_bom, 1, kWorkspaceScope,       -1, SQLITE_STATIC);
   sqlite3_bind_text(ins_bom, 2, rel_path.c_str(),      -1, SQLITE_STATIC);
   sqlite3_bind_text(ins_bom, 3, configuration.c_str(), -1, SQLITE_STATIC);
   sqlite3_bind_text(ins_bom, 4, root_pn.c_str(),   -1, SQLITE_TRANSIENT);
@@ -679,8 +637,7 @@ bool SqliteStorage::SaveBom(const std::string& workspace,
   return true;
 }
 
-std::vector<std::string> SqliteStorage::GetPropertyNames(
-    const std::string& workspace) {
+std::vector<std::string> SqliteStorage::GetPropertyNames() {
   std::vector<std::string> names;
   if (!db_) return names;
   // Collect distinct property names from global, config, and cut-list props.
@@ -699,23 +656,23 @@ std::vector<std::string> SqliteStorage::GetPropertyNames(
       "ORDER BY name;";
   sqlite3_stmt* stmt;
   if (sqlite3_prepare_v2(db_, sql, -1, &stmt, 0) != SQLITE_OK) return names;
-  sqlite3_bind_text(stmt, 1, workspace.c_str(), -1, SQLITE_STATIC);
-  sqlite3_bind_text(stmt, 2, workspace.c_str(), -1, SQLITE_STATIC);
-  sqlite3_bind_text(stmt, 3, workspace.c_str(), -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, kWorkspaceScope, -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 2, kWorkspaceScope, -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 3, kWorkspaceScope, -1, SQLITE_STATIC);
   while (sqlite3_step(stmt) == SQLITE_ROW)
     names.push_back(SafeColumnText(stmt, 0));
   sqlite3_finalize(stmt);
   return names;
 }
 
-nlohmann::json SqliteStorage::GetPropertyConfig(const std::string& workspace) {
+nlohmann::json SqliteStorage::GetPropertyConfig() {
   nlohmann::json result = nlohmann::json::array();
   if (!db_) return result;
   sqlite3_stmt* stmt;
   const char* sql =
       "SELECT name, visible, role FROM property_configs WHERE workspace=? ORDER BY name;";
   if (sqlite3_prepare_v2(db_, sql, -1, &stmt, 0) != SQLITE_OK) return result;
-  sqlite3_bind_text(stmt, 1, workspace.c_str(), -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, kWorkspaceScope, -1, SQLITE_STATIC);
   while (sqlite3_step(stmt) == SQLITE_ROW) {
     nlohmann::json item;
     item["name"]    = SafeColumnText(stmt, 0);
@@ -727,8 +684,7 @@ nlohmann::json SqliteStorage::GetPropertyConfig(const std::string& workspace) {
   return result;
 }
 
-bool SqliteStorage::SetPropertyConfig(const std::string& workspace,
-                                      const nlohmann::json& config) {
+bool SqliteStorage::SetPropertyConfig(const nlohmann::json& config) {
   if (!db_ || !config.is_array()) return false;
   SqlTransaction tx(db_);
   // Remove existing config for this workspace then re-insert.
@@ -736,7 +692,7 @@ bool SqliteStorage::SetPropertyConfig(const std::string& workspace,
   if (sqlite3_prepare_v2(db_,
         "DELETE FROM property_configs WHERE workspace=?;", -1, &del_stmt, 0) != SQLITE_OK)
     return false;
-  sqlite3_bind_text(del_stmt, 1, workspace.c_str(), -1, SQLITE_STATIC);
+  sqlite3_bind_text(del_stmt, 1, kWorkspaceScope, -1, SQLITE_STATIC);
   sqlite3_step(del_stmt);
   sqlite3_finalize(del_stmt);
 
@@ -746,7 +702,7 @@ bool SqliteStorage::SetPropertyConfig(const std::string& workspace,
         -1, &ins, 0) != SQLITE_OK)
     return false;
   for (const auto& item : config) {
-    sqlite3_bind_text(ins, 1, workspace.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(ins, 1, kWorkspaceScope, -1, SQLITE_STATIC);
     std::string name = item.value("name", "");
     sqlite3_bind_text(ins, 2, name.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(ins, 3, item.value("visible", true) ? 1 : 0);
@@ -760,187 +716,5 @@ bool SqliteStorage::SetPropertyConfig(const std::string& workspace,
   return true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Profile management
-// ─────────────────────────────────────────────────────────────────────────────
-
-nlohmann::json SqliteStorage::GetProfiles() {
-  nlohmann::json result = nlohmann::json::array();
-  if (!db_) return result;
-  sqlite3_stmt* stmt;
-  if (sqlite3_prepare_v2(db_,
-        "SELECT id, name, description, created_at FROM profiles ORDER BY name;",
-        -1, &stmt, 0) != SQLITE_OK) return result;
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    nlohmann::json p;
-    p["id"]          = sqlite3_column_int64(stmt, 0);
-    p["name"]        = SafeColumnText(stmt, 1);
-    p["description"] = SafeColumnText(stmt, 2);
-    p["created_at"]  = SafeColumnText(stmt, 3);
-    result.push_back(p);
-  }
-  sqlite3_finalize(stmt);
-  return result;
-}
-
-int64_t SqliteStorage::CreateProfile(const std::string& name,
-                                     const std::string& description) {
-  if (!db_) return -1;
-  sqlite3_stmt* stmt;
-  if (sqlite3_prepare_v2(db_,
-        "INSERT INTO profiles (name, description) VALUES (?, ?);",
-        -1, &stmt, 0) != SQLITE_OK) return -1;
-  sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
-  sqlite3_bind_text(stmt, 2, description.c_str(), -1, SQLITE_STATIC);
-  if (sqlite3_step(stmt) != SQLITE_DONE) { sqlite3_finalize(stmt); return -1; }
-  int64_t id = sqlite3_last_insert_rowid(db_);
-  sqlite3_finalize(stmt);
-  return id;
-}
-
-bool SqliteStorage::DeleteProfile(int64_t profile_id) {
-  if (!db_) return false;
-  sqlite3_stmt* stmt;
-  if (sqlite3_prepare_v2(db_,
-        "DELETE FROM profiles WHERE id=?;", -1, &stmt, 0) != SQLITE_OK) return false;
-  sqlite3_bind_int64(stmt, 1, profile_id);
-  bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
-  sqlite3_finalize(stmt);
-  return ok;
-}
-
-nlohmann::json SqliteStorage::GetProfile(int64_t profile_id) {
-  nlohmann::json result;
-  if (!db_) return result;
-
-  // Header
-  sqlite3_stmt* stmt;
-  if (sqlite3_prepare_v2(db_,
-        "SELECT id, name, description, created_at FROM profiles WHERE id=?;",
-        -1, &stmt, 0) != SQLITE_OK) return result;
-  sqlite3_bind_int64(stmt, 1, profile_id);
-  if (sqlite3_step(stmt) != SQLITE_ROW) { sqlite3_finalize(stmt); return result; }
-  result["id"]          = sqlite3_column_int64(stmt, 0);
-  result["name"]        = SafeColumnText(stmt, 1);
-  result["description"] = SafeColumnText(stmt, 2);
-  result["created_at"]  = SafeColumnText(stmt, 3);
-  sqlite3_finalize(stmt);
-
-  // Mappings
-  result["mappings"] = nlohmann::json::array();
-  if (sqlite3_prepare_v2(db_,
-        "SELECT sw_property, target_entity, target_field "
-        "FROM profile_mappings WHERE profile_id=? ORDER BY target_entity, target_field;",
-        -1, &stmt, 0) == SQLITE_OK) {
-    sqlite3_bind_int64(stmt, 1, profile_id);
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-      nlohmann::json m;
-      m["sw_property"]   = SafeColumnText(stmt, 0);
-      m["target_entity"] = SafeColumnText(stmt, 1);
-      m["target_field"]  = SafeColumnText(stmt, 2);
-      result["mappings"].push_back(m);
-    }
-    sqlite3_finalize(stmt);
-  }
-
-  // Rules
-  result["rules"] = nlohmann::json::array();
-  if (sqlite3_prepare_v2(db_,
-        "SELECT rule_type, property_name, property_value "
-        "FROM profile_rules WHERE profile_id=? ORDER BY rule_type, property_name;",
-        -1, &stmt, 0) == SQLITE_OK) {
-    sqlite3_bind_int64(stmt, 1, profile_id);
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-      nlohmann::json r;
-      r["rule_type"]      = SafeColumnText(stmt, 0);
-      r["property_name"]  = SafeColumnText(stmt, 1);
-      r["property_value"] = SafeColumnText(stmt, 2);
-      result["rules"].push_back(r);
-    }
-    sqlite3_finalize(stmt);
-  }
-
-  return result;
-}
-
-bool SqliteStorage::SaveProfile(const nlohmann::json& profile) {
-  if (!db_ || !profile.is_object()) return false;
-  int64_t profile_id = profile.value("id", int64_t(-1));
-  if (profile_id < 0) return false;
-
-  SqlTransaction tx(db_);
-
-  // Update header
-  sqlite3_stmt* stmt;
-  if (sqlite3_prepare_v2(db_,
-        "UPDATE profiles SET name=?, description=? WHERE id=?;",
-        -1, &stmt, 0) != SQLITE_OK) return false;
-  std::string name = profile.value("name", "");
-  std::string desc = profile.value("description", "");
-  sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 2, desc.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int64(stmt, 3, profile_id);
-  sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-
-  // Replace mappings
-  if (sqlite3_prepare_v2(db_,
-        "DELETE FROM profile_mappings WHERE profile_id=?;",
-        -1, &stmt, 0) == SQLITE_OK) {
-    sqlite3_bind_int64(stmt, 1, profile_id);
-    sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-  }
-  if (profile.contains("mappings") && profile["mappings"].is_array()) {
-    if (sqlite3_prepare_v2(db_,
-          "INSERT OR IGNORE INTO profile_mappings "
-          "(profile_id, sw_property, target_entity, target_field) VALUES (?,?,?,?);",
-          -1, &stmt, 0) == SQLITE_OK) {
-      for (const auto& m : profile["mappings"]) {
-        sqlite3_bind_int64(stmt, 1, profile_id);
-        std::string sp = m.value("sw_property",   "");
-        std::string te = m.value("target_entity", "");
-        std::string tf = m.value("target_field",  "");
-        sqlite3_bind_text(stmt, 2, sp.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 3, te.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, tf.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(stmt);
-        sqlite3_reset(stmt);
-      }
-      sqlite3_finalize(stmt);
-    }
-  }
-
-  // Replace rules
-  if (sqlite3_prepare_v2(db_,
-        "DELETE FROM profile_rules WHERE profile_id=?;",
-        -1, &stmt, 0) == SQLITE_OK) {
-    sqlite3_bind_int64(stmt, 1, profile_id);
-    sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-  }
-  if (profile.contains("rules") && profile["rules"].is_array()) {
-    if (sqlite3_prepare_v2(db_,
-          "INSERT INTO profile_rules "
-          "(profile_id, rule_type, property_name, property_value) VALUES (?,?,?,?);",
-          -1, &stmt, 0) == SQLITE_OK) {
-      for (const auto& r : profile["rules"]) {
-        sqlite3_bind_int64(stmt, 1, profile_id);
-        std::string rt = r.value("rule_type",      "");
-        std::string pn = r.value("property_name",  "");
-        std::string pv = r.value("property_value", "");
-        sqlite3_bind_text(stmt, 2, rt.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 3, pn.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, pv.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(stmt);
-        sqlite3_reset(stmt);
-      }
-      sqlite3_finalize(stmt);
-    }
-  }
-
-  tx.Commit();
-  return true;
-}
 
 }  // namespace sw_dumper::storage
