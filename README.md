@@ -54,6 +54,60 @@ A Linux HTTP server that lets you upload a ZIP archive of SolidWorks files and b
 
 ---
 
+## Quick Start with Docker or Podman
+
+If you want to try `asmbox` quickly, the container image is the fastest path.
+
+Build the image locally:
+
+```bash
+docker build -t openswx:latest .
+```
+
+or:
+
+```bash
+podman build -t openswx:latest .
+```
+
+Start the web server with persistent data and a bootstrap admin account:
+
+```bash
+docker run --rm \
+  -p 8087:8087 \
+  -v openswx-data:/data \
+  -e ASMBOX_ADMIN_USER=admin \
+  -e ASMBOX_ADMIN_PASSWORD='change-me-now' \
+  openswx:latest
+```
+
+With Podman:
+
+```bash
+podman run --rm \
+  -p 8087:8087 \
+  -v openswx-data:/data \
+  -e ASMBOX_ADMIN_USER=admin \
+  -e ASMBOX_ADMIN_PASSWORD='change-me-now' \
+  openswx:latest
+```
+
+Open `http://localhost:8087`, sign in as `admin`, and create additional users from the admin area.
+
+Run `swx_dump` directly through `--entrypoint`:
+
+```bash
+docker run --rm \
+  --entrypoint swx_dump \
+  -v "$PWD:/files:ro" \
+  openswx:latest \
+  /files/example.SLDPRT
+```
+
+The same pattern works with `podman`. The image runs as a non-root user, exposes port `8087`, stores persistent state in `/data`, and includes `asmbox`, `swx_dump`, and `swx_scan`.
+
+---
+
 ## Prerequisites
 
 | Package | Minimum version | Purpose |
@@ -69,7 +123,7 @@ A Linux HTTP server that lets you upload a ZIP archive of SolidWorks files and b
 
 The following are fetched automatically by CMake's `FetchContent` during configuration:
 
-- **Crow** v1.2.0 — HTTP server framework
+- **Crow** v1.3.3 — HTTP server framework
 - **plog** v1.1.10 — Logging
 - **googletest** v1.15.2 — Unit tests
 
@@ -95,7 +149,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ```
 
-This produces three binaries inside `build/asmbox/`:
+This produces four binaries inside `build/asmbox/`:
 
 | Binary | Description |
 |--------|-------------|
@@ -158,11 +212,11 @@ All mass/geometry values are in SI units (kg, m, m², m³).
 
 The server starts at `http://0.0.0.0:8087`.
 
-Open `http://localhost:8087` in a browser to reach the upload UI.
+Open `http://localhost:8087` in a browser to reach the login screen.
 
-On first use, create a local user account in the sign-in dialog. Workspaces and
-profiles are private to the signed-in user and are no longer shared globally
-between browser sessions.
+`asmbox` is now a multi-user system. Self-service registration is disabled.
+The first account must be bootstrapped as an admin, and additional accounts can
+then be created, edited, deactivated, or deleted by an admin user.
 
 To bootstrap an admin account on server start, set both
 `ASMBOX_ADMIN_USER` and `ASMBOX_ADMIN_PASSWORD`. If the named user already
@@ -183,15 +237,19 @@ You can also create or promote an admin explicitly via CLI:
 If `--password` is omitted, `asmbox` reads the password from
 `ASMBOX_ADMIN_PASSWORD` or prompts on stdin.
 
+After signing in, workspaces, profiles, and account data are private to the
+signed-in user and remain available across server restarts as long as
+`ASMBOX_DATA_DIR` is persistent.
+
 **Upload a ZIP archive** containing one or more SolidWorks files. The server will:
-1. Unpack the archive into `ASMBOX_DATA_DIR/<workspace>/`
+1. Unpack the archive into `ASMBOX_DATA_DIR/users/<user-id>/workspaces/<workspace-id>/files/`
 2. Scan for `.SLDPRT`, `.SLDASM`, and `.SLDDRW` files
 3. Analyze each file immediately and cache the result in SQLite
 4. Return the list of found files as JSON
 
-**Browse the workspace** in the sidebar, click any file to see its parsed document data and properties.
+**Browse the workspace** in the sidebar, click any file to see its parsed document data and properties. After signing out and back in, the workspace list and extracted files are restored from disk.
 
-**View the BOM** via the "Bill of Materials" tab for assembly and drawing files.  The BOM is built recursively by resolving component paths within the workspace directory.
+**View the BOM** via the "Bill of Materials" tab for assembly and drawing files.  The BOM is built recursively by resolving component paths within the workspace directory. If the BOM cannot be derived from the model or input data, the API returns HTTP `422` instead of a generic internal server error.
 
 **Configure properties** per workspace: mark which properties are visible, and assign semantic roles (`part_number`, `description`, `material`, `revision`).  The property designated as `part_number` is used when persisting BOMs.
 
@@ -230,46 +288,7 @@ stable error categories.
 
 ---
 
-### 4. Container image
-
-Build the image locally:
-
-```bash
-docker build -t openswx:latest .
-```
-
-Run `asmbox` with persistent workspace data:
-
-```bash
-docker run --rm \
-  -p 8087:8087 \
-  -v openswx-data:/data \
-  openswx:latest
-```
-
-Run `swx_dump` directly through `--entrypoint`:
-
-```bash
-docker run --rm \
-  --entrypoint swx_dump \
-  -v "$PWD:/files:ro" \
-  openswx:latest \
-  /files/example.SLDPRT
-```
-
-The same image also works with `podman`, for example:
-
-```bash
-podman build -t openswx:latest .
-podman run --rm -p 8087:8087 -v openswx-data:/data openswx:latest
-```
-
-The image runs as a non-root user, exposes port `8087`, stores persistent
-state in `/data`, and includes `asmbox`, `swx_dump`, and `swx_scan`.
-
----
-
-### 5. Configuration via environment variables
+### 4. Configuration via environment variables
 
 All settings use the `ASMBOX_` prefix and have sensible defaults:
 
@@ -284,9 +303,10 @@ All settings use the `ASMBOX_` prefix and have sensible defaults:
 
 The main SQLite database (`main.sqlite`) is stored in `ASMBOX_DATA_DIR` and is
 persistent across server restarts. Workspace-specific caches are stored in each
-workspace directory as `workspace.sqlite`. The schema is created with
-`CREATE TABLE IF NOT EXISTS`, so restarting the server never erases cached data
-or profiles.
+workspace directory as `workspace.sqlite`, typically below
+`ASMBOX_DATA_DIR/users/<user-id>/workspaces/<workspace-id>/`. The schema is
+created with `CREATE TABLE IF NOT EXISTS`, so restarting the server never
+erases users, profiles, workspace metadata, or cached analysis data.
 
 Example — run on a non-default port, binding only to localhost, with a persistent data directory:
 
@@ -300,7 +320,7 @@ ASMBOX_TEMPLATE_DIR=/usr/share/asmbox/templates \
 
 ---
 
-### 6. Using libopenswx in your own project
+### 5. Using libopenswx in your own project
 
 Add libopenswx as a subdirectory and link against it:
 
@@ -335,7 +355,7 @@ for (const auto& cfg : doc.configurations) {
 
 ---
 
-### 7. Using libopenbom in your own project
+### 6. Using libopenbom in your own project
 
 Add both libraries and link:
 
@@ -397,8 +417,14 @@ writer.WriteToFile(bom, "bom.json");
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/` | Web UI (`index.html`) |
-| `GET` | `/api/workspaces` | List all workspaces as JSON |
-| `DELETE` | `/api/workspaces/<name>` | Delete a workspace and its files |
+| `POST` | `/api/auth/login` | Sign in with `{username, password}` |
+| `POST` | `/api/auth/logout` | Sign out and clear the session cookie |
+| `GET` | `/api/auth/me` | Return the authenticated user |
+| `GET` | `/api/account` | Return the current user's profile |
+| `PUT` | `/api/account` | Update the current user's username and/or password |
+| `GET` | `/api/workspaces` | List the current user's workspaces as JSON |
+| `GET` | `/api/workspaces/<id>/files` | Rebuild the file tree for one workspace from disk |
+| `DELETE` | `/api/workspaces/<id>` | Delete a workspace and its files |
 | `POST` | `/upload` | Upload a `multipart/form-data` request with a `file` field (ZIP) |
 | `GET` | `/api/doc/<workspace>/<path_b64>` | Parsed document JSON for one file (cached in SQLite) |
 | `GET` | `/api/workspaces/<ws>/props` | Property names + configuration for the workspace |
@@ -409,6 +435,10 @@ writer.WriteToFile(bom, "bom.json");
 | `PUT` | `/api/profiles/<id>` | Save full profile (upsert mappings and rules) |
 | `DELETE` | `/api/profiles/<id>` | Delete a profile |
 | `GET` | `/api/bom/<workspace>/<path_b64>` | Build BOM; optionally apply profile with `?profile=<id>` |
+| `GET` | `/api/admin/users` | List all users; admin only |
+| `POST` | `/api/admin/users` | Create a user; admin only |
+| `PUT` | `/api/admin/users/<id>` | Update username, admin flag, active flag, or password; admin only |
+| `DELETE` | `/api/admin/users/<id>` | Delete a user; admin only |
 
 `<path_b64>` is the relative file path within the workspace, Base64url-encoded.
 
