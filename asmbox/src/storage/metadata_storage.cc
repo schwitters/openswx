@@ -39,6 +39,24 @@ class SqlTransaction {
   }
 };
 
+bool ColumnExists(sqlite3* db, const std::string& table_name,
+                  const std::string& column_name) {
+  sqlite3_stmt* stmt = nullptr;
+  const std::string sql = "PRAGMA table_info(" + table_name + ");";
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+    return false;
+  }
+  bool found = false;
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    if (SafeColumnText(stmt, 1) == column_name) {
+      found = true;
+      break;
+    }
+  }
+  sqlite3_finalize(stmt);
+  return found;
+}
+
 }  // namespace
 
 void MetadataStorage::Exec(const std::string& sql) {
@@ -75,6 +93,7 @@ MetadataStorage::MetadataStorage(const std::string& db_path) {
       password_salt       TEXT NOT NULL,
       password_hash       TEXT NOT NULL,
       is_admin            INTEGER NOT NULL DEFAULT 0,
+      is_active           INTEGER NOT NULL DEFAULT 1,
       created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login_at       DATETIME
     );
@@ -128,6 +147,9 @@ MetadataStorage::MetadataStorage(const std::string& db_path) {
     CREATE INDEX IF NOT EXISTS idx_profile_map_pid ON profile_mappings(profile_id);
     CREATE INDEX IF NOT EXISTS idx_profile_rule_pid ON profile_rules(profile_id);
   )SQL");
+  if (!ColumnExists(db_, "users", "is_active")) {
+    Exec("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;");
+  }
 }
 
 MetadataStorage::~MetadataStorage() {
@@ -137,7 +159,8 @@ MetadataStorage::~MetadataStorage() {
 }
 
 bool MetadataStorage::CreateUser(const std::string& username,
-                                 const auth::PasswordRecord& password) {
+                                 const auth::PasswordRecord& password,
+                                 bool is_admin) {
   if (db_ == nullptr || username.empty()) {
     return false;
   }
@@ -145,7 +168,7 @@ bool MetadataStorage::CreateUser(const std::string& username,
   constexpr char kSql[] =
       "INSERT INTO users "
       "(username, password_algo, password_iterations, password_salt, "
-      " password_hash) VALUES (?, ?, ?, ?, ?);";
+      " password_hash, is_admin) VALUES (?, ?, ?, ?, ?, ?);";
   if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
     return false;
   }
@@ -154,6 +177,7 @@ bool MetadataStorage::CreateUser(const std::string& username,
   sqlite3_bind_int(stmt, 3, password.iterations);
   sqlite3_bind_text(stmt, 4, password.salt_hex.c_str(), -1, SQLITE_TRANSIENT);
   sqlite3_bind_text(stmt, 5, password.hash_hex.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 6, is_admin ? 1 : 0);
   const bool ok = sqlite3_step(stmt) == SQLITE_DONE;
   sqlite3_finalize(stmt);
   return ok;
@@ -167,7 +191,7 @@ std::optional<UserAuthInfo> MetadataStorage::GetUserAuthInfo(
   sqlite3_stmt* stmt = nullptr;
   constexpr char kSql[] =
       "SELECT id, username, is_admin, created_at, last_login_at, password_algo, "
-      "password_iterations, password_salt, password_hash "
+      "password_iterations, password_salt, password_hash, is_active "
       "FROM users WHERE username=?;";
   if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
     return std::nullopt;
@@ -188,6 +212,7 @@ std::optional<UserAuthInfo> MetadataStorage::GetUserAuthInfo(
   info.password.iterations = sqlite3_column_int(stmt, 6);
   info.password.salt_hex = SafeColumnText(stmt, 7);
   info.password.hash_hex = SafeColumnText(stmt, 8);
+  info.user.is_active = sqlite3_column_int(stmt, 9) != 0;
   sqlite3_finalize(stmt);
   return info;
 }
@@ -198,7 +223,7 @@ std::optional<UserInfo> MetadataStorage::GetUserById(int64_t user_id) {
   }
   sqlite3_stmt* stmt = nullptr;
   constexpr char kSql[] =
-      "SELECT id, username, is_admin, created_at, last_login_at "
+      "SELECT id, username, is_admin, is_active, created_at, last_login_at "
       "FROM users WHERE id=?;";
   if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
     return std::nullopt;
@@ -213,10 +238,147 @@ std::optional<UserInfo> MetadataStorage::GetUserById(int64_t user_id) {
   user.id = sqlite3_column_int64(stmt, 0);
   user.username = SafeColumnText(stmt, 1);
   user.is_admin = sqlite3_column_int(stmt, 2) != 0;
-  user.created_at = SafeColumnText(stmt, 3);
-  user.last_login_at = SafeColumnText(stmt, 4);
+  user.is_active = sqlite3_column_int(stmt, 3) != 0;
+  user.created_at = SafeColumnText(stmt, 4);
+  user.last_login_at = SafeColumnText(stmt, 5);
   sqlite3_finalize(stmt);
   return user;
+}
+
+std::vector<UserInfo> MetadataStorage::GetUsers() {
+  std::vector<UserInfo> users;
+  if (db_ == nullptr) {
+    return users;
+  }
+  sqlite3_stmt* stmt = nullptr;
+  constexpr char kSql[] =
+      "SELECT id, username, is_admin, is_active, created_at, last_login_at "
+      "FROM users ORDER BY username COLLATE NOCASE ASC;";
+  if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
+    return users;
+  }
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    UserInfo user;
+    user.id = sqlite3_column_int64(stmt, 0);
+    user.username = SafeColumnText(stmt, 1);
+    user.is_admin = sqlite3_column_int(stmt, 2) != 0;
+    user.is_active = sqlite3_column_int(stmt, 3) != 0;
+    user.created_at = SafeColumnText(stmt, 4);
+    user.last_login_at = SafeColumnText(stmt, 5);
+    users.push_back(user);
+  }
+  sqlite3_finalize(stmt);
+  return users;
+}
+
+int64_t MetadataStorage::CountUsers() {
+  if (db_ == nullptr) {
+    return -1;
+  }
+  sqlite3_stmt* stmt = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT COUNT(*) FROM users;", -1, &stmt,
+                         nullptr) != SQLITE_OK) {
+    return -1;
+  }
+  if (sqlite3_step(stmt) != SQLITE_ROW) {
+    sqlite3_finalize(stmt);
+    return -1;
+  }
+  const int64_t count = sqlite3_column_int64(stmt, 0);
+  sqlite3_finalize(stmt);
+  return count;
+}
+
+int64_t MetadataStorage::CountActiveAdmins() {
+  if (db_ == nullptr) {
+    return -1;
+  }
+  sqlite3_stmt* stmt = nullptr;
+  constexpr char kSql[] =
+      "SELECT COUNT(*) FROM users WHERE is_admin=1 AND is_active=1;";
+  if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
+    return -1;
+  }
+  if (sqlite3_step(stmt) != SQLITE_ROW) {
+    sqlite3_finalize(stmt);
+    return -1;
+  }
+  const int64_t count = sqlite3_column_int64(stmt, 0);
+  sqlite3_finalize(stmt);
+  return count;
+}
+
+bool MetadataStorage::SetUserAdmin(int64_t user_id, bool is_admin) {
+  if (db_ == nullptr || user_id <= 0) {
+    return false;
+  }
+  sqlite3_stmt* stmt = nullptr;
+  constexpr char kSql[] = "UPDATE users SET is_admin=? WHERE id=?;";
+  if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
+    return false;
+  }
+  sqlite3_bind_int(stmt, 1, is_admin ? 1 : 0);
+  sqlite3_bind_int64(stmt, 2, user_id);
+  const bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db_) > 0;
+  sqlite3_finalize(stmt);
+  return ok;
+}
+
+bool MetadataStorage::UpdateUser(int64_t user_id, const std::string& username,
+                                 bool is_admin, bool is_active) {
+  if (db_ == nullptr || user_id <= 0 || username.empty()) {
+    return false;
+  }
+  sqlite3_stmt* stmt = nullptr;
+  constexpr char kSql[] =
+      "UPDATE users SET username=?, is_admin=?, is_active=? WHERE id=?;";
+  if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
+    return false;
+  }
+  sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 2, is_admin ? 1 : 0);
+  sqlite3_bind_int(stmt, 3, is_active ? 1 : 0);
+  sqlite3_bind_int64(stmt, 4, user_id);
+  const bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+  sqlite3_finalize(stmt);
+  return ok;
+}
+
+bool MetadataStorage::UpdateUserPassword(int64_t user_id,
+                                         const auth::PasswordRecord& password) {
+  if (db_ == nullptr || user_id <= 0) {
+    return false;
+  }
+  sqlite3_stmt* stmt = nullptr;
+  constexpr char kSql[] =
+      "UPDATE users SET password_algo=?, password_iterations=?, "
+      "password_salt=?, password_hash=? WHERE id=?;";
+  if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
+    return false;
+  }
+  sqlite3_bind_text(stmt, 1, password.algorithm.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 2, password.iterations);
+  sqlite3_bind_text(stmt, 3, password.salt_hex.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 4, password.hash_hex.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int64(stmt, 5, user_id);
+  const bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+  sqlite3_finalize(stmt);
+  return ok;
+}
+
+bool MetadataStorage::DeleteUser(int64_t user_id) {
+  if (db_ == nullptr || user_id <= 0) {
+    return false;
+  }
+  sqlite3_stmt* stmt = nullptr;
+  constexpr char kSql[] = "DELETE FROM users WHERE id=?;";
+  if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
+    return false;
+  }
+  sqlite3_bind_int64(stmt, 1, user_id);
+  const bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db_) > 0;
+  sqlite3_finalize(stmt);
+  return ok;
 }
 
 bool MetadataStorage::UpdateLastLogin(int64_t user_id,
@@ -271,7 +433,7 @@ std::optional<SessionInfo> MetadataStorage::GetSession(
       "SELECT s.user_id, u.username, u.is_admin, s.expires_at "
       "FROM sessions s "
       "JOIN users u ON u.id=s.user_id "
-      "WHERE s.session_token_hash=? AND s.expires_at>?;";
+      "WHERE s.session_token_hash=? AND s.expires_at>? AND u.is_active=1;";
   if (sqlite3_prepare_v2(db_, kSql, -1, &stmt, nullptr) != SQLITE_OK) {
     return std::nullopt;
   }

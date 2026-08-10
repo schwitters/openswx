@@ -19,6 +19,7 @@ struct UserInfo {
   int64_t id = -1;
   std::string username;
   bool is_admin = false;
+  bool is_active = true;
   std::string created_at;
   std::string last_login_at;
 };
@@ -58,10 +59,23 @@ class MetadataStorage {
   ~MetadataStorage();
 
   [[nodiscard]] bool CreateUser(const std::string& username,
-                                const auth::PasswordRecord& password);
+                                const auth::PasswordRecord& password,
+                                bool is_admin = false);
   [[nodiscard]] std::optional<UserAuthInfo> GetUserAuthInfo(
       const std::string& username);
   [[nodiscard]] std::optional<UserInfo> GetUserById(int64_t user_id);
+  [[nodiscard]] std::vector<UserInfo> GetUsers();
+  [[nodiscard]] int64_t CountUsers();
+  [[nodiscard]] int64_t CountActiveAdmins();
+  [[nodiscard]] bool SetUserAdmin(int64_t user_id, bool is_admin);
+  [[nodiscard]] bool UpdateUser(int64_t user_id,
+                                const std::string& username,
+                                bool is_admin,
+                                bool is_active);
+  [[nodiscard]] bool UpdateUserPassword(
+      int64_t user_id,
+      const auth::PasswordRecord& password);
+  [[nodiscard]] bool DeleteUser(int64_t user_id);
   [[nodiscard]] bool UpdateLastLogin(int64_t user_id, int64_t now_epoch_seconds);
 
   [[nodiscard]] bool CreateSession(int64_t user_id,

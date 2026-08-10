@@ -91,5 +91,67 @@ TEST(MetadataStorageTest, UserSessionWorkspaceAndProfileLifecycle) {
   EXPECT_EQ(profile["rules"].size(), 1u);
 }
 
+TEST(MetadataStorageTest, SupportsAdminCreationAndPromotion) {
+  TempDirectory temp_directory;
+  MetadataStorage storage((temp_directory.path() / "main.sqlite").string());
+
+  const auto password = auth::HashPassword("hunter2hunter2", 1000);
+  ASSERT_TRUE(password.has_value());
+  EXPECT_EQ(storage.CountUsers(), 0);
+
+  ASSERT_TRUE(storage.CreateUser("admin", *password, true));
+  EXPECT_EQ(storage.CountUsers(), 1);
+
+  const auto admin_auth = storage.GetUserAuthInfo("admin");
+  ASSERT_TRUE(admin_auth.has_value());
+  EXPECT_TRUE(admin_auth->user.is_admin);
+
+  ASSERT_TRUE(storage.CreateUser("bob", *password));
+  const auto bob_auth = storage.GetUserAuthInfo("bob");
+  ASSERT_TRUE(bob_auth.has_value());
+  EXPECT_FALSE(bob_auth->user.is_admin);
+
+  ASSERT_TRUE(storage.SetUserAdmin(bob_auth->user.id, true));
+  const auto promoted_bob = storage.GetUserAuthInfo("bob");
+  ASSERT_TRUE(promoted_bob.has_value());
+  EXPECT_TRUE(promoted_bob->user.is_admin);
+}
+
+TEST(MetadataStorageTest, SupportsUserListingUpdateDisableAndDelete) {
+  TempDirectory temp_directory;
+  MetadataStorage storage((temp_directory.path() / "main.sqlite").string());
+
+  const auto password = auth::HashPassword("hunter2hunter2", 1000);
+  ASSERT_TRUE(password.has_value());
+  ASSERT_TRUE(storage.CreateUser("admin", *password, true));
+  ASSERT_TRUE(storage.CreateUser("carol", *password, false));
+
+  auto users = storage.GetUsers();
+  ASSERT_EQ(users.size(), 2u);
+  EXPECT_EQ(users[0].username, "admin");
+  EXPECT_EQ(users[1].username, "carol");
+  EXPECT_EQ(storage.CountActiveAdmins(), 1);
+
+  const auto carol_auth = storage.GetUserAuthInfo("carol");
+  ASSERT_TRUE(carol_auth.has_value());
+  ASSERT_TRUE(storage.UpdateUser(carol_auth->user.id, "carol2", true, false));
+
+  const auto updated_carol = storage.GetUserAuthInfo("carol2");
+  ASSERT_TRUE(updated_carol.has_value());
+  EXPECT_TRUE(updated_carol->user.is_admin);
+  EXPECT_FALSE(updated_carol->user.is_active);
+  EXPECT_EQ(storage.CountActiveAdmins(), 1);
+
+  const auto new_password = auth::HashPassword("newpassword123", 1000);
+  ASSERT_TRUE(new_password.has_value());
+  ASSERT_TRUE(storage.UpdateUserPassword(updated_carol->user.id, *new_password));
+  const auto auth_after_password = storage.GetUserAuthInfo("carol2");
+  ASSERT_TRUE(auth_after_password.has_value());
+  EXPECT_TRUE(auth::VerifyPassword("newpassword123", auth_after_password->password));
+
+  ASSERT_TRUE(storage.DeleteUser(updated_carol->user.id));
+  EXPECT_FALSE(storage.GetUserById(updated_carol->user.id).has_value());
+}
+
 }  // namespace
 }  // namespace sw_dumper::storage

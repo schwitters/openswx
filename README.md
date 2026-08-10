@@ -164,6 +164,25 @@ On first use, create a local user account in the sign-in dialog. Workspaces and
 profiles are private to the signed-in user and are no longer shared globally
 between browser sessions.
 
+To bootstrap an admin account on server start, set both
+`ASMBOX_ADMIN_USER` and `ASMBOX_ADMIN_PASSWORD`. If the named user already
+exists, `asmbox` promotes that user to admin and keeps the existing password.
+
+```bash
+ASMBOX_ADMIN_USER=admin \
+ASMBOX_ADMIN_PASSWORD='change-me-now' \
+  ./build/asmbox/asmbox
+```
+
+You can also create or promote an admin explicitly via CLI:
+
+```bash
+./build/asmbox/asmbox create-admin admin --password 'change-me-now'
+```
+
+If `--password` is omitted, `asmbox` reads the password from
+`ASMBOX_ADMIN_PASSWORD` or prompts on stdin.
+
 **Upload a ZIP archive** containing one or more SolidWorks files. The server will:
 1. Unpack the archive into `ASMBOX_DATA_DIR/<workspace>/`
 2. Scan for `.SLDPRT`, `.SLDASM`, and `.SLDDRW` files
@@ -259,9 +278,15 @@ All settings use the `ASMBOX_` prefix and have sensible defaults:
 | `ASMBOX_BIND_ADDR` | `0.0.0.0` | IP address to bind to |
 | `ASMBOX_PORT` | `8087` | TCP port |
 | `ASMBOX_DATA_DIR` | `$TMPDIR/sw_portal` | Root directory for workspaces and the SQLite database |
-| `ASMBOX_TEMPLATE_DIR` | `templates` | Directory containing the Crow HTML templates |
+| `ASMBOX_TEMPLATE_DIR` | `<binary-dir>/templates` | Directory containing the Crow HTML templates |
+| `ASMBOX_ADMIN_USER` | unset | Optional bootstrap admin username |
+| `ASMBOX_ADMIN_PASSWORD` | unset | Optional bootstrap admin password |
 
-The SQLite database (`global.sqlite`) is stored in `ASMBOX_DATA_DIR` and is persistent across server restarts.  The schema is created with `CREATE TABLE IF NOT EXISTS`, so restarting the server never erases cached data or profiles.
+The main SQLite database (`main.sqlite`) is stored in `ASMBOX_DATA_DIR` and is
+persistent across server restarts. Workspace-specific caches are stored in each
+workspace directory as `workspace.sqlite`. The schema is created with
+`CREATE TABLE IF NOT EXISTS`, so restarting the server never erases cached data
+or profiles.
 
 Example — run on a non-default port, binding only to localhost, with a persistent data directory:
 
