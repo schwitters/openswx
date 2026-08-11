@@ -48,6 +48,19 @@ TEST(DecompressorTest, InflateZlbRejectsInvalidCompressedLength) {
   EXPECT_FALSE(InflateZlb(block).has_value());
 }
 
+TEST(DecompressorTest, InflateZlbRejectsOversizedDeclaredOutput) {
+  const std::string payload = "zlb payload";
+  std::vector<uint8_t> block = test::MakeZlbBlock(
+      std::span<const uint8_t>(
+          reinterpret_cast<const uint8_t*>(payload.data()), payload.size()));
+  block[16] = 0x01;
+  block[17] = 0x00;
+  block[18] = 0x00;
+  block[19] = 0x08;
+
+  EXPECT_FALSE(InflateZlb(block).has_value());
+}
+
 TEST(DecompressorTest, InflateZlbDecompressesValidBlock) {
   const std::string payload = "zlb payload";
   const std::vector<uint8_t> block = test::MakeZlbBlock(

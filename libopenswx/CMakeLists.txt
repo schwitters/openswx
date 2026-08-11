@@ -53,6 +53,7 @@ target_compile_options(openswx PRIVATE
 if(BUILD_TESTING)
   add_executable(libopenswx_tests
     tests/decompressor_test.cc
+    tests/document_test.cc
     tests/modern_parser_test.cc
     tests/ole2_parser_test.cc
   )
