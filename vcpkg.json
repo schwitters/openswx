@@ -7,6 +7,7 @@
     "plog",
     "crow",
     "libzip",
+    "openssl",
     "sqlite3",
     "pugixml",
     "zlib"

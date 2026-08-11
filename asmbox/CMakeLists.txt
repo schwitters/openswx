@@ -21,6 +21,7 @@ endif()
 
 # ── System packages ────────────────────────────────────────────────────────────
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(OpenSSL      REQUIRED)
 find_package(SQLite3       REQUIRED)
 find_package(libzip        CONFIG REQUIRED)
 
@@ -45,8 +46,10 @@ FetchContent_MakeAvailable(plog)
 
 # ── asmbox server ─────────────────────────────────────────────────────────────
 add_executable(asmbox
+  src/auth/auth_utils.cc
   src/server.cc
   src/sw/document_analyzer.cc
+  src/storage/metadata_storage.cc
   src/storage/sqlite_storage.cc
   src/utils/string_utils.cc
   src/utils/zip_extractor.cc
@@ -63,6 +66,7 @@ target_link_libraries(asmbox PRIVATE
   openswx
   nlohmann_json::nlohmann_json
   Crow::Crow
+  OpenSSL::Crypto
   plog::plog
   SQLite::SQLite3
   libzip::zip
@@ -97,11 +101,15 @@ if(BUILD_TESTING)
   find_program(CURL_EXECUTABLE curl)
 
   add_executable(asmbox_tests
+    tests/auth_utils_test.cc
+    tests/metadata_storage_test.cc
     tests/sqlite_storage_test.cc
     tests/swx_scan_test.cc
     tests/utils_test.cc
     tests/zip_extractor_test.cc
+    src/auth/auth_utils.cc
     src/swx_scan/scanner.cc
+    src/storage/metadata_storage.cc
     src/storage/sqlite_storage.cc
     src/utils/string_utils.cc
     src/utils/zip_extractor.cc
@@ -110,6 +118,7 @@ if(BUILD_TESTING)
   target_link_libraries(asmbox_tests PRIVATE
     GTest::gtest_main
     nlohmann_json::nlohmann_json
+    OpenSSL::Crypto
     openswx
     plog::plog
     SQLite::SQLite3

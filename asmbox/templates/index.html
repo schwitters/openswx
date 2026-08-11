@@ -7,71 +7,202 @@
 <style>
 /* ── Design tokens ────────────────────────────────────────────────────────── */
 :root {
-  --pri:     #2563eb;
-  --pri-dk:  #1d4ed8;
-  --pri-lt:  #eff6ff;
-  --text:    #1e293b;
-  --muted:   #64748b;
-  --border:  #e2e8f0;
-  --bg:      #f8fafc;
-  --card:    #ffffff;
-  --hover:   #f1f5f9;
-  --sel-bg:  #eff6ff;
-  --sel-br:  #2563eb;
-  --red:     #dc2626;
-  --green:   #16a34a;
-  --amber:   #d97706;
-  --radius:  6px;
-  --shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --pri:     #0f766e;
+  --pri-dk:  #115e59;
+  --pri-lt:  #dff7f3;
+  --sec:     #c26c2d;
+  --text:    #172033;
+  --muted:   #5f6c84;
+  --border:  #d8e0eb;
+  --bg:      #eef3f7;
+  --card:    rgba(255,255,255,.86);
+  --card-strong: #ffffff;
+  --hover:   #edf6f3;
+  --sel-bg:  #dff7f3;
+  --sel-br:  #0f766e;
+  --red:     #c2410c;
+  --green:   #15803d;
+  --amber:   #b45309;
+  --radius:  14px;
+  --shadow:  0 18px 45px rgba(23,32,51,.12);
+  --shadow-soft: 0 10px 28px rgba(23,32,51,.08);
 }
 
 /* ── Reset / base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; font-size: 14px; }
+body {
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(15,118,110,.18), transparent 30%),
+    radial-gradient(circle at 85% 12%, rgba(194,108,45,.18), transparent 24%),
+    linear-gradient(180deg, #f7fafc 0%, #ebf1f5 100%);
+  color: var(--text);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+}
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: -1;
+}
+body::before {
+  width: 28rem;
+  height: 28rem;
+  left: -10rem;
+  top: -9rem;
+  background: rgba(15,118,110,.12);
+  filter: blur(18px);
+}
+body::after {
+  width: 24rem;
+  height: 24rem;
+  right: -8rem;
+  bottom: -8rem;
+  background: rgba(194,108,45,.10);
+  filter: blur(18px);
+}
+body.auth-locked { overflow: hidden; }
 
 /* ── Header ───────────────────────────────────────────────────────────────── */
-.hdr { background: var(--pri); color: #fff; padding: 0 16px; height: 48px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,.2); z-index: 20; }
-.hdr-left  { display: flex; align-items: center; gap: 16px; }
-.hdr-title { font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
-.ws-pill   { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.15); padding: 4px 10px; border-radius: 20px; }
-.ws-pill select { background: transparent; border: none; color: #fff; font-weight: 600; font-size: .9rem; cursor: pointer; outline: none; }
+.hdr {
+  background: linear-gradient(135deg, rgba(23,32,51,.94), rgba(15,118,110,.92));
+  color: #fff;
+  padding: 14px 20px;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-shadow: 0 14px 34px rgba(23,32,51,.18);
+  z-index: 20;
+}
+.hdr-left  { display: flex; align-items: center; gap: 18px; }
+.hdr-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ws-pill   {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.14);
+  padding: 8px 14px;
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+}
+.ws-pill select { background: transparent; border: none; color: #fff; font-weight: 600; font-size: .92rem; cursor: pointer; outline: none; }
 .ws-pill select option { color: #1e293b; }
-.btn-del   { cursor: pointer; color: rgba(255,255,255,.6); font-size: 1rem; line-height: 1; transition: color .15s; }
+.btn-del   { cursor: pointer; color: rgba(255,255,255,.68); font-size: 1rem; line-height: 1; transition: color .15s; }
 .btn-del:hover { color: #fca5a5; }
-.hdr-status { font-size: .8rem; opacity: .75; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hdr-status {
+  font-size: .78rem;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.12);
+}
+.hdr-action {
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.14);
+  color: #fff;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: .83rem;
+  font-weight: 600;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.hdr-action:hover {
+  background: rgba(255,255,255,.18);
+  border-color: rgba(255,255,255,.22);
+  transform: translateY(-1px);
+}
 
 /* ── Layout ───────────────────────────────────────────────────────────────── */
-.layout { display: flex; flex: 1; overflow: hidden; }
-.sidebar { width: 360px; background: var(--card); display: flex; flex-direction: column; flex-shrink: 0; }
-.main    { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.layout { display: flex; flex: 1; overflow: hidden; padding: 18px; gap: 16px; }
+.sidebar {
+  width: 360px;
+  background: var(--card);
+  backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,.75);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  background: rgba(255,255,255,.72);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.75);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+}
 
 /* ── Resizable pane divider ───────────────────────────────────────────────── */
 .pane-divider {
-  width: 5px; flex-shrink: 0; cursor: col-resize; background: var(--border);
+  width: 6px; flex-shrink: 0; cursor: col-resize; background: transparent;
   position: relative; z-index: 10; transition: background .12s;
 }
-.pane-divider:hover, .pane-divider.active { background: var(--pri); }
+.pane-divider:hover, .pane-divider.active { background: rgba(15,118,110,.16); }
 /* Wider invisible hit-area so the 5px strip is easy to grab */
 .pane-divider::after {
   content: ''; position: absolute; inset: 0; left: -5px; right: -5px;
+  border-radius: 999px;
+  background: rgba(15,118,110,.12);
+}
+.pane-divider:not(.active)::after {
+  opacity: .35;
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
-.sb-top { padding: 10px; background: var(--bg); border-bottom: 1px solid var(--border); }
-.upload-btn { width: 100%; padding: 8px; border: 1.5px dashed #94a3b8; border-radius: var(--radius); background: transparent; color: var(--muted); font-size: .82rem; cursor: pointer; text-align: center; transition: .15s; }
-.upload-btn:hover { border-color: var(--pri); color: var(--pri); background: var(--pri-lt); }
-.seg  { display: flex; background: #e2e8f0; border-radius: 5px; padding: 2px; margin: 8px 0; }
-.seg-btn { flex: 1; text-align: center; padding: 5px 8px; cursor: pointer; border-radius: 4px; font-size: .82rem; color: var(--muted); font-weight: 500; user-select: none; transition: .15s; }
-.seg-btn.active { background: var(--card); color: var(--pri); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-.search { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; outline: none; transition: border-color .15s; }
+.sb-top { padding: 16px; background: rgba(242,246,249,.92); border-bottom: 1px solid var(--border); }
+.upload-btn {
+  width: 100%;
+  padding: 14px 12px;
+  border: 1.5px dashed rgba(15,118,110,.32);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(15,118,110,.08), rgba(194,108,45,.08));
+  color: var(--pri-dk);
+  font-size: .84rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: .15s;
+}
+.upload-btn:hover { border-color: var(--pri); color: var(--pri); background: linear-gradient(135deg, rgba(15,118,110,.14), rgba(194,108,45,.10)); }
+.seg  { display: flex; background: rgba(216,224,235,.7); border-radius: 999px; padding: 3px; margin: 12px 0; }
+.seg-btn { flex: 1; text-align: center; padding: 7px 10px; cursor: pointer; border-radius: 999px; font-size: .81rem; color: var(--muted); font-weight: 700; user-select: none; transition: .15s; }
+.seg-btn.active { background: var(--card-strong); color: var(--pri); box-shadow: var(--shadow-soft); }
+.search { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; font-size: .85rem; outline: none; transition: border-color .15s, box-shadow .15s; background: rgba(255,255,255,.82); }
 .search:focus { border-color: var(--pri); }
 .scroll { flex: 1; overflow-y: auto; }
 
 /* ── File list ────────────────────────────────────────────────────────────── */
-.file-item { padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background .1s; }
+.file-item { padding: 10px 14px; border-bottom: 1px solid rgba(216,224,235,.72); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background .1s, border-left-color .1s; }
 .file-item:hover { background: var(--hover); }
-.file-item.active { background: var(--sel-bg); border-left: 3px solid var(--sel-br); }
-.file-icon { font-size: 1rem; flex-shrink: 0; }
+.file-item.active { background: var(--sel-bg); border-left: 4px solid var(--sel-br); }
+.file-icon { font-size: 1.05rem; flex-shrink: 0; }
 .file-info { min-width: 0; }
 .file-name { font-weight: 600; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .file-path { font-size: .75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -91,10 +222,10 @@ ul.tree ul.open { display: block; }
 .bq { background: #e2e8f0; color: #475569; padding: 1px 5px; border-radius: 3px; font-size: .72rem; margin-left: 5px; }
 
 /* ── Main content ─────────────────────────────────────────────────────────── */
-.content-tabs { display: flex; align-items: center; gap: 4px; padding: 0 16px; background: var(--card); border-bottom: 1px solid var(--border); flex-shrink: 0; height: 44px; }
-.ct-btn { padding: 6px 14px; cursor: pointer; font-size: .88rem; font-weight: 500; border-radius: 4px; color: var(--muted); transition: .15s; border: none; background: transparent; }
+.content-tabs { display: flex; align-items: center; gap: 6px; padding: 12px 16px 10px; background: rgba(255,255,255,.58); border-bottom: 1px solid var(--border); flex-shrink: 0; min-height: 58px; }
+.ct-btn { padding: 9px 16px; cursor: pointer; font-size: .88rem; font-weight: 700; border-radius: 999px; color: var(--muted); transition: .15s; border: none; background: transparent; }
 .ct-btn:hover { background: var(--hover); color: var(--text); }
-.ct-btn.active { background: var(--pri-lt); color: var(--pri); font-weight: 600; }
+.ct-btn.active { background: linear-gradient(135deg, var(--pri-lt), #ffffff); color: var(--pri); box-shadow: var(--shadow-soft); }
 .ct-spacer { flex: 1; }
 #docMeta { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
 #docTitle { font-weight: 600; color: var(--text); }
@@ -254,6 +385,234 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
 .rule-ns { background:#fee2e2; color:#991b1b; }
 .rule-ph { background:#ede9fe; color:#5b21b6; }
 
+/* ── Account modal ───────────────────────────────────────────────────────── */
+#accountModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:220; align-items:center; justify-content:center; }
+.account-box { background:var(--card); border-radius:18px; box-shadow:0 12px 34px rgba(0,0,0,.18); width:560px; max-width:94vw; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; }
+.account-body { padding:18px; display:flex; flex-direction:column; gap:14px; }
+.account-grid { display:grid; grid-template-columns:150px 1fr; gap:10px 12px; align-items:center; }
+.account-label { font-size:.82rem; color:var(--muted); }
+.account-meta { padding:12px 14px; background:rgba(255,255,255,.64); border:1px solid var(--border); border-radius:14px; }
+.account-meta strong { display:block; font-size:.74rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:4px; }
+.account-meta span { font-size:.88rem; color:var(--text); }
+
+/* ── Auth screen ──────────────────────────────────────────────────────────── */
+#authModal {
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:300;
+  align-items:stretch;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(15,118,110,.24), transparent 26%),
+    radial-gradient(circle at 82% 12%, rgba(194,108,45,.22), transparent 24%),
+    linear-gradient(135deg, rgba(11,18,32,.97), rgba(19,45,52,.95));
+}
+.auth-shell {
+  width:100%;
+  display:grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(380px, .95fr);
+}
+.auth-showcase {
+  position:relative;
+  padding:48px clamp(28px, 5vw, 72px);
+  color:#f8fbff;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  overflow:hidden;
+}
+.auth-showcase::before,
+.auth-showcase::after {
+  content:"";
+  position:absolute;
+  border-radius:999px;
+  filter:blur(6px);
+}
+.auth-showcase::before {
+  width:18rem;
+  height:18rem;
+  right:-4rem;
+  top:-5rem;
+  background:rgba(255,255,255,.08);
+}
+.auth-showcase::after {
+  width:13rem;
+  height:13rem;
+  left:-2rem;
+  bottom:5rem;
+  background:rgba(194,108,45,.18);
+}
+.auth-brand,
+.auth-story,
+.auth-foot {
+  position:relative;
+  z-index:1;
+}
+.auth-kicker {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  font-size:.76rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.auth-mark {
+  font-family:Georgia, "Times New Roman", serif;
+  font-size:clamp(2.4rem, 6vw, 4.8rem);
+  line-height:.96;
+  letter-spacing:.04em;
+  margin:18px 0 14px;
+  text-transform:uppercase;
+}
+.auth-lead {
+  max-width:34rem;
+  font-size:1.05rem;
+  line-height:1.7;
+  color:rgba(248,251,255,.84);
+}
+.auth-grid {
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:14px;
+  margin-top:28px;
+  max-width:42rem;
+}
+.auth-card {
+  padding:16px 18px;
+  border-radius:20px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.10);
+  backdrop-filter:blur(12px);
+}
+.auth-card strong {
+  display:block;
+  font-size:.78rem;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  margin-bottom:8px;
+  color:#d7f8f2;
+}
+.auth-card span {
+  display:block;
+  color:rgba(248,251,255,.78);
+  line-height:1.55;
+}
+.auth-foot {
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  color:rgba(248,251,255,.72);
+  font-size:.82rem;
+}
+.auth-box {
+  margin:24px;
+  border-radius:32px;
+  background:rgba(255,255,255,.88);
+  box-shadow:0 28px 64px rgba(9,15,26,.30);
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  backdrop-filter:blur(16px);
+}
+.auth-panel {
+  width:min(440px, 100%);
+  padding:42px 38px;
+}
+.auth-head {
+  padding:0;
+  background:transparent;
+  border-bottom:none;
+}
+.auth-overline {
+  display:block;
+  font-size:.76rem;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--pri);
+  margin-bottom:14px;
+}
+.auth-head h2 {
+  margin:0;
+  font-family:Georgia, "Times New Roman", serif;
+  font-size:2.2rem;
+  line-height:1.04;
+}
+.auth-body { padding:18px 0 0; display:flex; flex-direction:column; gap:14px; }
+.auth-input {
+  width:100%;
+  padding:13px 14px;
+  border:1px solid rgba(95,108,132,.22);
+  border-radius:16px;
+  font-size:.94rem;
+  outline:none;
+  background:rgba(255,255,255,.94);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.72);
+}
+.auth-input:focus { border-color:var(--pri); box-shadow:0 0 0 3px rgba(15,118,110,.10); }
+.auth-actions { display:flex; gap:10px; justify-content:flex-end; padding-top:4px; }
+.auth-note { font-size:.88rem; color:var(--muted); line-height:1.6; }
+.auth-error { min-height:1.2em; color:var(--red); font-size:.82rem; }
+
+/* ── User admin modal ────────────────────────────────────────────────────── */
+#userAdminModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:320; align-items:center; justify-content:center; }
+.user-admin-box { width:980px; max-width:96vw; max-height:88vh; background:var(--card); border-radius:10px; box-shadow:0 20px 40px rgba(0,0,0,.25); overflow:hidden; display:flex; flex-direction:column; }
+.user-admin-head { padding:16px 18px; background:var(--bg); border-bottom:1px solid var(--border); }
+.user-admin-head h2 { margin:0; font-size:1rem; }
+.user-admin-body { display:flex; flex:1; min-height:0; overflow:hidden; }
+.modal-help { font-size:.82rem; color:var(--muted); line-height:1.45; }
+.check-row { display:flex; align-items:center; gap:8px; font-size:.84rem; color:var(--text); }
+.user-admin-list { width:420px; max-width:45%; border-right:1px solid var(--border); display:flex; flex-direction:column; min-height:0; background:var(--bg); }
+.user-admin-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border); }
+.user-admin-table-wrap { flex:1; overflow:auto; }
+.user-admin-table { width:100%; border-collapse:collapse; }
+.user-admin-table th, .user-admin-table td { padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; font-size:.82rem; vertical-align:middle; }
+.user-admin-table th { background:var(--bg); position:sticky; top:0; color:var(--muted); font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; }
+.user-admin-table tr:hover td { background:var(--hover); }
+.user-admin-table tr.sel td { background:var(--sel-bg); }
+.user-admin-name { font-weight:600; }
+.status-pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:600; }
+.status-active { background:#d1fae5; color:#065f46; }
+.status-inactive { background:#fee2e2; color:#991b1b; }
+.user-admin-editor { flex:1; display:flex; flex-direction:column; min-width:0; }
+.user-admin-scroll { flex:1; overflow:auto; padding:16px 18px; }
+.user-admin-grid { display:grid; grid-template-columns:140px 1fr; gap:10px 12px; align-items:center; margin:0 0 14px; }
+.user-admin-label { font-size:.82rem; color:var(--muted); }
+.user-admin-actions { display:flex; gap:8px; justify-content:flex-end; padding:12px 18px; border-top:1px solid var(--border); background:var(--bg); }
+.mini-actions { display:flex; gap:6px; }
+.btn-danger { padding:7px 18px; background:#fff; color:var(--red); border:1px solid #fecaca; border-radius:var(--radius); cursor:pointer; font-size:.86rem; font-weight:600; }
+.btn-danger:hover { background:#fff5f5; border-color:#fca5a5; }
+
+@media (max-width: 980px) {
+  .layout { padding: 12px; gap: 12px; }
+  .auth-shell { grid-template-columns: 1fr; }
+  .auth-showcase { min-height: 36vh; padding: 30px 24px 24px; }
+  .auth-box { margin: 0 18px 18px; }
+  .user-admin-box { width: calc(100vw - 24px); }
+  .user-admin-body { flex-direction: column; }
+  .user-admin-list { width: 100%; max-width: none; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+}
+
+@media (max-width: 760px) {
+  body { font-size: 13px; }
+  .hdr { padding: 12px; align-items: flex-start; gap: 12px; flex-direction: column; }
+  .hdr-left { width: 100%; flex-wrap: wrap; }
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; min-height: 260px; }
+  .auth-panel { padding: 28px 22px; }
+  .auth-grid { grid-template-columns: 1fr; }
+  .auth-mark { font-size: 2.5rem; }
+  .user-admin-grid { grid-template-columns: 1fr; gap: 8px; }
+  .user-admin-actions { flex-wrap: wrap; }
+  .settings-box, .profile-box, .user-admin-box { border-radius: 20px; }
+}
+
 /* ── Loading overlay ──────────────────────────────────────────────────────── */
 #overlay { display: none; position: absolute; inset: 0; background: rgba(255,255,255,.82); z-index: 50; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(2px); gap: 12px; }
 .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--pri); border-radius: 50%; animation: spin .7s linear infinite; }
@@ -380,11 +739,159 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
         </div>
       </div>
     </div>
-  </div>
+</div>
 </div>
 
 <!-- Datalist for SW property name autocomplete in profile mappings -->
 <datalist id="propNamesList"></datalist>
+
+<div id="authModal">
+  <div class="auth-shell">
+    <section class="auth-showcase">
+      <div class="auth-brand">
+        <span class="auth-kicker">openswx workspace portal</span>
+        <div class="auth-mark">Solid data,<br>without the CAD seat.</div>
+        <div class="auth-lead">
+          Review structures, inspect properties, generate BOMs and manage private workspaces in one place.
+        </div>
+      </div>
+      <div class="auth-story">
+        <div class="auth-grid">
+          <div class="auth-card">
+            <strong>Private Workspaces</strong>
+            <span>Each account works in isolated workspace storage with its own files, cache and property settings.</span>
+          </div>
+          <div class="auth-card">
+            <strong>Fast BOM Review</strong>
+            <span>Open assemblies, compare configurations and apply transformation profiles without sharing CAD metadata globally.</span>
+          </div>
+          <div class="auth-card">
+            <strong>Admin Controlled</strong>
+            <span>User accounts are created and governed by administrators, including activation, deactivation and role changes.</span>
+          </div>
+          <div class="auth-card">
+            <strong>Linux Ready</strong>
+            <span>Runs locally with SQLite-backed state and a lightweight web UI, built for quick technical validation.</span>
+          </div>
+        </div>
+      </div>
+      <div class="auth-foot">
+        <span>Multi-user by design</span>
+        <span>Workspace-local caches</span>
+        <span>Admin-managed accounts</span>
+      </div>
+    </section>
+    <div class="auth-box">
+      <div class="auth-panel">
+        <div class="auth-head">
+          <span class="auth-overline">Authentication</span>
+          <h2 id="authTitle">Sign in</h2>
+        </div>
+        <div class="auth-body">
+          <div class="auth-note" id="authNote">Sign in to access your private workspaces.</div>
+          <input id="authUsername" class="auth-input" type="text" autocomplete="username" placeholder="Username">
+          <input id="authPassword" class="auth-input" type="password" autocomplete="current-password" placeholder="Password">
+          <div class="auth-error" id="authError"></div>
+          <div class="auth-actions">
+            <button class="btn-primary" id="authSubmitBtn" onclick="submitAuth()">Sign in</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="userAdminModal" onclick="if(event.target===this)closeUserAdminModal()">
+  <div class="user-admin-box">
+    <div class="user-admin-head">
+      <h2>User Administration</h2>
+    </div>
+    <div class="user-admin-body">
+      <div class="user-admin-list">
+        <div class="user-admin-toolbar">
+          <div>
+            <div style="font-weight:700;font-size:.9rem">Accounts</div>
+            <div class="modal-help">Create, edit, disable or delete local users.</div>
+          </div>
+          <button class="btn-primary" style="padding:5px 10px;font-size:.8rem" onclick="startNewAdminUser()">+ New</button>
+        </div>
+        <div class="user-admin-table-wrap">
+          <table class="user-admin-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th style="width:90px">Status</th>
+                <th style="width:80px">Admin</th>
+                <th style="width:120px">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="userAdminTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="user-admin-editor">
+        <div class="user-admin-scroll">
+          <div class="modal-help" id="userAdminFormNote">Only admins can create local user accounts.</div>
+          <div class="user-admin-grid" style="margin-top:14px">
+            <label class="user-admin-label" for="newUserUsername">Username</label>
+            <input id="newUserUsername" class="auth-input" type="text" autocomplete="off" placeholder="Username">
+
+            <label class="user-admin-label" for="newUserPassword">Password</label>
+            <input id="newUserPassword" class="auth-input" type="password" autocomplete="new-password" placeholder="Set a password or leave empty when unchanged">
+
+            <label class="user-admin-label">Role</label>
+            <label class="check-row"><input id="newUserIsAdmin" type="checkbox"> Admin account</label>
+
+            <label class="user-admin-label">Status</label>
+            <label class="check-row"><input id="newUserIsActive" type="checkbox" checked> Active</label>
+          </div>
+          <div class="auth-error" id="userAdminError"></div>
+        </div>
+        <div class="user-admin-actions">
+          <button class="btn-danger" id="userAdminDeleteBtn" onclick="deleteSelectedAdminUser()" style="display:none">Delete</button>
+          <button class="btn-secondary" onclick="closeUserAdminModal()">Close</button>
+          <button class="btn-primary" id="userAdminSubmitBtn" onclick="submitUserCreate()">Create account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="accountModal" onclick="if(event.target===this)closeAccountModal()">
+  <div class="account-box">
+    <div class="settings-hdr">
+      <h2>My Profile</h2>
+      <span class="settings-close" onclick="closeAccountModal()">✕</span>
+    </div>
+    <div class="account-body">
+      <div class="account-grid">
+        <label class="account-label" for="accountUsername">Username</label>
+        <input id="accountUsername" class="auth-input" type="text" autocomplete="username" placeholder="Username">
+
+        <label class="account-label" for="accountCurrentPassword">Current password</label>
+        <input id="accountCurrentPassword" class="auth-input" type="password" autocomplete="current-password" placeholder="Required to save changes">
+
+        <label class="account-label" for="accountNewPassword">New password</label>
+        <input id="accountNewPassword" class="auth-input" type="password" autocomplete="new-password" placeholder="Leave empty to keep current password">
+      </div>
+      <div class="account-grid">
+        <div class="account-label">Role</div>
+        <div class="account-meta"><strong>Account role</strong><span id="accountRoleLabel">User</span></div>
+
+        <div class="account-label">Created</div>
+        <div class="account-meta"><strong>Created at</strong><span id="accountCreatedAt">-</span></div>
+
+        <div class="account-label">Last login</div>
+        <div class="account-meta"><strong>Last login</strong><span id="accountLastLogin">-</span></div>
+      </div>
+      <div class="auth-error" id="accountError"></div>
+    </div>
+    <div class="settings-foot">
+      <button class="btn-secondary" onclick="closeAccountModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveAccount()">Save profile</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Header ────────────────────────────────────────────────────────────── -->
 <header class="hdr">
@@ -397,8 +904,12 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
-    <button style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;border-radius:4px;padding:4px 10px;font-size:.85rem" onclick="openProfiles()" title="Manage profiles">📋 Profiles</button>
-    <button style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;border-radius:4px;padding:4px 10px;font-size:.85rem" onclick="openSettings()" title="Property settings">⚙ Properties</button>
+    <button id="userAdminBtn" class="hdr-action" style="display:none" onclick="openUserAdminModal()" title="Create user accounts">Users</button>
+    <button id="accountBtn" class="hdr-action" style="display:none" onclick="openAccountModal()" title="Edit your profile">My Profile</button>
+    <button class="hdr-action" onclick="openProfiles()" title="Manage profiles">Profiles</button>
+    <button class="hdr-action" onclick="openSettings()" title="Property settings">Properties</button>
+    <span id="hdrUser" style="font-size:.84rem;font-weight:600;opacity:.9"></span>
+    <button id="authActionBtn" class="hdr-action" onclick="logout()">Logout</button>
     <div id="hdrStatus" class="hdr-status">Ready</div>
   </div>
 </header>
@@ -561,6 +1072,7 @@ table.bom tr.bom-sel td { background: var(--sel-bg); }
 let allFiles = [];       // [{name, rel_path, session}]
 let fileMap = new Map(); // lowercase filename → file obj
 let currentWs = "";
+let currentWorkspaceName = "";
 let currentFile = null;
 let currentDoc = null;   // parsed document JSON from /api/doc/
 let currentBom = null;   // BOM JSON from /api/bom/
@@ -572,6 +1084,9 @@ let bomParentMap = new Map(); // id → parentId (null for roots)
 let bomFilter = "";
 let warnVisible = false;
 let selectedBomId = null;
+let currentUser = null;
+let adminUsers = [];
+let editingAdminUserId = null;
 
 // Property configuration state
 // propConfigs: Map<name, {visible:bool, role:string}>
@@ -617,6 +1132,346 @@ function showLoading(active, txt) {
   ov.style.display = active ? 'flex' : 'none';
   if (txt) document.getElementById('overlayText').textContent = txt;
 }
+function setCurrentUser(user) {
+  currentUser = user;
+  document.getElementById('hdrUser').textContent = user ? user.username : '';
+  document.getElementById('authActionBtn').style.display = user ? '' : 'none';
+  document.getElementById('accountBtn').style.display = user ? '' : 'none';
+  document.getElementById('userAdminBtn').style.display = user && user.is_admin ? '' : 'none';
+}
+function updateAuthModal() {
+  document.getElementById('authTitle').textContent = 'Sign in';
+  document.getElementById('authNote').textContent = 'Sign in with an existing account to open private workspaces, review files and manage BOM output.';
+  document.getElementById('authSubmitBtn').textContent = 'Sign in';
+  document.getElementById('authPassword').setAttribute('autocomplete', 'current-password');
+}
+function openAuthModal() {
+  document.body.classList.add('auth-locked');
+  document.getElementById('authError').textContent = '';
+  updateAuthModal();
+  document.getElementById('authModal').style.display = 'flex';
+}
+function closeAuthModal() {
+  if (currentUser) {
+    document.body.classList.remove('auth-locked');
+    document.getElementById('authModal').style.display = 'none';
+  }
+}
+function fillAccountForm(user) {
+  document.getElementById('accountUsername').value = user?.username || '';
+  document.getElementById('accountCurrentPassword').value = '';
+  document.getElementById('accountNewPassword').value = '';
+  document.getElementById('accountRoleLabel').textContent = user?.is_admin ? 'Administrator' : 'User';
+  document.getElementById('accountCreatedAt').textContent = user?.created_at || '-';
+  document.getElementById('accountLastLogin').textContent = user?.last_login_at || '-';
+}
+async function openAccountModal() {
+  if (!currentUser) return;
+  document.getElementById('accountError').textContent = '';
+  document.getElementById('accountModal').style.display = 'flex';
+  fillAccountForm(currentUser);
+  try {
+    const res = await fetch('/api/account');
+    if (res.status === 401) {
+      setCurrentUser(null);
+      closeAccountModal();
+      openAuthModal();
+      return;
+    }
+    if (!res.ok) throw new Error(await res.text());
+    const user = await res.json();
+    setCurrentUser(user);
+    fillAccountForm(user);
+  } catch (e) {
+    document.getElementById('accountError').textContent = String(e.message || e);
+  }
+}
+function closeAccountModal() {
+  document.getElementById('accountModal').style.display = 'none';
+}
+async function saveAccount() {
+  const username = document.getElementById('accountUsername').value.trim();
+  const currentPassword =
+      document.getElementById('accountCurrentPassword').value;
+  const newPassword = document.getElementById('accountNewPassword').value;
+  const err = document.getElementById('accountError');
+  err.textContent = '';
+  if (!username) {
+    err.textContent = 'Username is required.';
+    return;
+  }
+  if (!currentPassword) {
+    err.textContent = 'Current password is required.';
+    return;
+  }
+  try {
+    const res = await fetch('/api/account', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        username,
+        current_password: currentPassword,
+        new_password: newPassword
+      }),
+    });
+    if (res.status === 401) {
+      setCurrentUser(null);
+      closeAccountModal();
+      openAuthModal();
+      return;
+    }
+    if (!res.ok) throw new Error(await res.text());
+    const user = await res.json();
+    setCurrentUser(user);
+    fillAccountForm(user);
+    setStatus('Profile updated');
+  } catch (e) {
+    err.textContent = String(e.message || e);
+  }
+}
+function renderUserAdminForm() {
+  const editingUser = adminUsers.find(u => u.id === editingAdminUserId) || null;
+  const selfSelected = editingUser && currentUser && editingUser.id === currentUser.id;
+  document.getElementById('userAdminFormNote').textContent = editingUser
+    ? 'Update account properties, reset a password, or deactivate the selected user.'
+    : 'Create a new local user account.';
+  document.getElementById('userAdminSubmitBtn').textContent = editingUser ? 'Save changes' : 'Create account';
+  document.getElementById('userAdminDeleteBtn').style.display = editingUser ? '' : 'none';
+  document.getElementById('newUserIsAdmin').disabled = !!selfSelected;
+  document.getElementById('newUserIsActive').disabled = !!selfSelected;
+}
+function startNewAdminUser() {
+  editingAdminUserId = null;
+  document.getElementById('newUserUsername').value = '';
+  document.getElementById('newUserPassword').value = '';
+  document.getElementById('newUserIsAdmin').checked = false;
+  document.getElementById('newUserIsActive').checked = true;
+  document.getElementById('userAdminError').textContent = '';
+  renderAdminUsers();
+  renderUserAdminForm();
+}
+function selectAdminUser(userId) {
+  const user = adminUsers.find(entry => entry.id === userId);
+  if (!user) return;
+  editingAdminUserId = userId;
+  document.getElementById('newUserUsername').value = user.username || '';
+  document.getElementById('newUserPassword').value = '';
+  document.getElementById('newUserIsAdmin').checked = !!user.is_admin;
+  document.getElementById('newUserIsActive').checked = !!user.is_active;
+  document.getElementById('userAdminError').textContent = '';
+  renderAdminUsers();
+  renderUserAdminForm();
+}
+function renderAdminUsers() {
+  const tbody = document.getElementById('userAdminTableBody');
+  if (!adminUsers.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No user accounts found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = adminUsers.map(user => {
+    const selected = editingAdminUserId === user.id ? ' sel' : '';
+    const statusClass = user.is_active ? 'status-active' : 'status-inactive';
+    const statusLabel = user.is_active ? 'Active' : 'Inactive';
+    const toggleLabel = user.is_active ? 'Disable' : 'Activate';
+    return '<tr class="' + selected + '">' +
+      '<td onclick="selectAdminUser(' + user.id + ')" style="cursor:pointer">' +
+        '<div class="user-admin-name">' + esc(user.username) + '</div>' +
+        '<div style="font-size:.74rem;color:var(--muted)">' + esc(user.last_login_at || 'Never signed in') + '</div>' +
+      '</td>' +
+      '<td><span class="status-pill ' + statusClass + '">' + statusLabel + '</span></td>' +
+      '<td>' + (user.is_admin ? 'Yes' : 'No') + '</td>' +
+      '<td><div class="mini-actions">' +
+        '<button class="btn-sm" onclick="selectAdminUser(' + user.id + ')">Edit</button>' +
+        '<button class="btn-sm" onclick="toggleAdminUserActive(' + user.id + ',' + (!user.is_active) + ')">' + toggleLabel + '</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+async function loadAdminUsers(selectedUserId) {
+  const res = await fetch('/api/admin/users');
+  if (res.status === 401) {
+    setCurrentUser(null);
+    closeUserAdminModal();
+    openAuthModal();
+    return false;
+  }
+  if (res.status === 403) {
+    throw new Error('Admin privileges required');
+  }
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+  adminUsers = await res.json();
+  renderAdminUsers();
+  if (selectedUserId) {
+    const selected = adminUsers.find(user => user.id === selectedUserId);
+    if (selected) {
+      selectAdminUser(selectedUserId);
+      return true;
+    }
+  }
+  if (editingAdminUserId) {
+    const selected = adminUsers.find(user => user.id === editingAdminUserId);
+    if (selected) {
+      selectAdminUser(editingAdminUserId);
+      return true;
+    }
+  }
+  startNewAdminUser();
+  return true;
+}
+function openUserAdminModal() {
+  if (!currentUser || !currentUser.is_admin) return;
+  document.getElementById('userAdminModal').style.display = 'flex';
+  startNewAdminUser();
+  loadAdminUsers().catch(e => {
+    document.getElementById('userAdminError').textContent = String(e.message || e);
+  });
+}
+function closeUserAdminModal() {
+  document.getElementById('userAdminModal').style.display = 'none';
+}
+async function toggleAdminUserActive(userId, nextActive) {
+  const user = adminUsers.find(entry => entry.id === userId);
+  if (!user) return;
+  try {
+    const res = await fetch('/api/admin/users/' + userId, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        username: user.username,
+        is_admin: user.is_admin,
+        is_active: nextActive
+      }),
+    });
+    if (res.status === 401) {
+      setCurrentUser(null);
+      closeUserAdminModal();
+      openAuthModal();
+      return;
+    }
+    if (!res.ok) throw new Error(await res.text());
+    await loadAdminUsers(userId);
+    setStatus('User updated');
+  } catch (e) {
+    document.getElementById('userAdminError').textContent = String(e.message || e);
+  }
+}
+async function submitUserCreate() {
+  const username = document.getElementById('newUserUsername').value.trim();
+  const password = document.getElementById('newUserPassword').value;
+  const isAdmin = document.getElementById('newUserIsAdmin').checked;
+  const isActive = document.getElementById('newUserIsActive').checked;
+  const err = document.getElementById('userAdminError');
+  err.textContent = '';
+  if (!username) {
+    err.textContent = 'Username is required.';
+    return;
+  }
+  if (editingAdminUserId === null && !password) {
+    err.textContent = 'Password is required for new accounts.';
+    return;
+  }
+  try {
+    const url = editingAdminUserId === null
+      ? '/api/admin/users'
+      : '/api/admin/users/' + editingAdminUserId;
+    const method = editingAdminUserId === null ? 'POST' : 'PUT';
+    const payload = editingAdminUserId === null
+      ? {username, password, is_admin: isAdmin}
+      : {username, password, is_admin: isAdmin, is_active: isActive};
+    const res = await fetch(url, {
+      method,
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 401) {
+      setCurrentUser(null);
+      closeUserAdminModal();
+      openAuthModal();
+      return;
+    }
+    if (res.status === 403) throw new Error('Admin privileges required');
+    if (!res.ok) throw new Error(await res.text());
+    const updatedUser = await res.json();
+    if (currentUser && editingAdminUserId === currentUser.id) {
+      await fetchCurrentUser();
+    }
+    await loadAdminUsers(updatedUser.id);
+    document.getElementById('newUserPassword').value = '';
+    setStatus(editingAdminUserId === null ? 'User account created' : 'User updated');
+  } catch (e) {
+    err.textContent = String(e.message || e);
+  }
+}
+async function deleteSelectedAdminUser() {
+  if (editingAdminUserId === null) return;
+  const user = adminUsers.find(entry => entry.id === editingAdminUserId);
+  if (!user) return;
+  if (!confirm('Delete user ' + user.username + '?')) return;
+  try {
+    const res = await fetch('/api/admin/users/' + editingAdminUserId, {
+      method: 'DELETE',
+    });
+    if (res.status === 401) {
+      setCurrentUser(null);
+      closeUserAdminModal();
+      openAuthModal();
+      return;
+    }
+    if (res.status === 403) throw new Error('Admin privileges required');
+    if (!res.ok) throw new Error(await res.text());
+    await loadAdminUsers();
+    setStatus('User deleted');
+  } catch (e) {
+    document.getElementById('userAdminError').textContent = String(e.message || e);
+  }
+}
+async function submitAuth() {
+  const username = document.getElementById('authUsername').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const err = document.getElementById('authError');
+  err.textContent = '';
+  if (!username || !password) {
+    err.textContent = 'Username and password are required.';
+    return;
+  }
+  try {
+    const loginRes = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    if (!loginRes.ok) throw new Error(await loginRes.text());
+    const user = await loginRes.json();
+    setCurrentUser(user);
+    closeAuthModal();
+    await loadProfiles();
+    await loadWorkspaces();
+    await loadWorkspaceFiles(currentWs);
+  } catch (e) {
+    err.textContent = String(e.message || e);
+  }
+}
+async function fetchCurrentUser() {
+  const res = await fetch('/api/auth/me');
+  if (res.status === 401) {
+    setCurrentUser(null);
+    openAuthModal();
+    return false;
+  }
+  if (!res.ok) throw new Error('Authentication check failed');
+  setCurrentUser(await res.json());
+  closeAuthModal();
+  return true;
+}
+async function logout() {
+  await fetch('/api/auth/logout', {method: 'POST'});
+  setCurrentUser(null);
+  closeUserAdminModal();
+  resetUI();
+  openAuthModal();
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Workspace management
@@ -624,14 +1479,22 @@ function showLoading(active, txt) {
 async function loadWorkspaces(selectName) {
   try {
     const res  = await fetch('/api/workspaces');
+    if (res.status === 401) { openAuthModal(); return; }
     const list = await res.json();
     const sel  = document.getElementById('wsSelect');
     sel.innerHTML = '';
-    if (!list.length) { sel.add(new Option('– no workspace –', '')); sel.disabled = true; return; }
+    if (!list.length) {
+      sel.add(new Option('– no workspace –', ''));
+      sel.disabled = true;
+      currentWs = "";
+      currentWorkspaceName = "";
+      return;
+    }
     sel.disabled = false;
-    list.forEach(w => sel.add(new Option(w.name, w.name)));
+    list.forEach(w => sel.add(new Option(w.name, w.id)));
     if (selectName) sel.value = selectName;
     currentWs = sel.value;
+    currentWorkspaceName = sel.options[sel.selectedIndex]?.text || "";
     await loadPropertyConfig();
   } catch(e) { console.error('loadWorkspaces', e); }
 }
@@ -640,6 +1503,7 @@ async function loadPropertyConfig() {
   if (!currentWs) return;
   try {
     const res = await fetch(`/api/workspaces/${currentWs}/props`);
+    if (res.status === 401) { openAuthModal(); return; }
     if (!res.ok) return;
     const data = await res.json();
     propNames = data.names || [];
@@ -648,18 +1512,39 @@ async function loadPropertyConfig() {
       propConfigs.set(c.name, { visible: c.visible !== false, role: c.role || '' });
   } catch(e) { console.error('loadPropertyConfig', e); }
 }
+async function loadWorkspaceFiles(workspaceId) {
+  if (!workspaceId) {
+    resetUI();
+    return;
+  }
+  try {
+    const res = await fetch(`/api/workspaces/${workspaceId}/files`);
+    if (res.status === 401) { openAuthModal(); return; }
+    if (!res.ok) throw new Error(await res.text());
+    const files = await res.json();
+    processFileList(files);
+    await loadPropertyConfig();
+    setStatus(files.length ? `${files.length} files loaded` : 'Workspace loaded');
+  } catch (e) {
+    console.error('loadWorkspaceFiles', e);
+    setStatus('Workspace load failed', true);
+  }
+}
 document.getElementById('wsSelect').onchange = () => {
-  currentWs = document.getElementById('wsSelect').value;
-  location.reload();
+  const sel = document.getElementById('wsSelect');
+  currentWs = sel.value;
+  currentWorkspaceName = sel.options[sel.selectedIndex]?.text || "";
+  loadWorkspaceFiles(currentWs);
 };
 async function deleteWorkspace() {
-  if (!currentWs || !confirm(`Delete workspace "${currentWs}"?`)) return;
+  if (!currentWs || !confirm(`Delete workspace "${currentWorkspaceName}"?`)) return;
   await fetch('/api/workspaces/' + currentWs, { method: 'DELETE' });
   await loadWorkspaces();
   resetUI();
 }
 function resetUI() {
   allFiles = []; fileMap.clear(); currentFile = null; currentDoc = null; currentBom = null;
+  currentWs = ""; currentWorkspaceName = "";
   propConfigs.clear(); propNames = [];
   document.getElementById('viewFiles').innerHTML = '<div class="empty-state">Load a workspace or upload a ZIP</div>';
   document.getElementById('viewTree').innerHTML  = '<div class="empty-state">Open a file</div>';
@@ -687,6 +1572,7 @@ async function upload(file) {
   const fd = new FormData(); fd.append('file', file);
   try {
     const res   = await fetch('/upload', { method: 'POST', body: fd });
+    if (res.status === 401) { openAuthModal(); throw new Error('Authentication required'); }
     if (!res.ok) throw new Error(await res.text());
     const files = await res.json();
     if (files.length) {
@@ -773,6 +1659,7 @@ async function loadFile(el, f) {
   showLoading(true, `Loading ${f.name}…`);
   try {
     const res = await fetch(`/api/doc/${currentWs}/${safeEncode(f.rel_path)}`);
+    if (res.status === 401) { openAuthModal(); throw new Error('Authentication required'); }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     currentDoc = await res.json();
     renderDetails(currentDoc);
@@ -1049,24 +1936,45 @@ function showContentTab(name) {
   document.getElementById('paneBom'    ).classList.toggle('active', name === 'bom');
 }
 
+function getSelectedBomProfileId() {
+  const profileSel = document.getElementById('bomProfileSel');
+  return profileSel ? profileSel.value : '';
+}
+
+function showBomError(message) {
+  document.getElementById('bomContent').style.display = 'none';
+  const bomEmpty = document.getElementById('bomEmpty');
+  bomEmpty.style.display = 'flex';
+  bomEmpty.innerHTML = `
+    <div class="bom-empty-icon">⚠</div>
+    <div>BOM could not be loaded</div>
+    <div style="font-size:.8rem;color:var(--red)">${esc(message)}</div>
+  `;
+}
+
+async function readBomError(res) {
+  const text = (await res.text()).trim();
+  if (text) return text;
+  if (res.status === 422) return 'The BOM could not be derived from this model.';
+  return 'HTTP ' + res.status;
+}
+
 async function activateBomTab() {
   showContentTab('bom');
   if (!currentFile) return;
   if (currentBom) { renderBom(currentBom); return; }
   showLoading(true, 'Computing BOM…');
   try {
-    const profileId = document.getElementById('bomProfileSel').value;
+    const profileId = getSelectedBomProfileId();
     let url = `/api/bom/${currentWs}/${safeEncode(currentFile.rel_path)}`;
     if (profileId) url += '?profile=' + encodeURIComponent(profileId);
     const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) throw new Error(await readBomError(res));
     currentBom = await res.json();
     renderBom(currentBom);
     setStatus('BOM loaded' + (profileId ? ' (profile applied)' : ''));
   } catch(e) {
-    document.getElementById('bomContent').innerHTML = `<div style="padding:24px;color:var(--red)">Error: ${esc(e.message)}</div>`;
-    document.getElementById('bomEmpty').style.display = 'none';
-    document.getElementById('bomContent').style.display = '';
+    showBomError(e.message);
     setStatus('BOM error: ' + e.message, true);
   } finally { showLoading(false); }
 }
@@ -1277,7 +2185,7 @@ function getDescriptionProp() {
 // ── Settings modal ──────────────────────────────────────────────────────────────────────
 function openSettings() {
   if (!currentWs) { alert('Load a workspace first.'); return; }
-  document.getElementById('settingsWsLabel').textContent = currentWs;
+  document.getElementById('settingsWsLabel').textContent = currentWorkspaceName;
   const allNames = new Set([...propNames]);
   propConfigs.forEach((_, k) => allNames.add(k));
   const sorted = [...allNames].sort((a, b) => a.localeCompare(b));
@@ -1573,6 +2481,7 @@ function ruleBadgeCls(rt) {
 async function loadProfiles() {
   try {
     const res = await fetch('/api/profiles');
+    if (res.status === 401) { openAuthModal(); return; }
     profiles = await res.json();
     renderProfileList();
     populateBomProfileSelector();
@@ -1778,17 +2687,19 @@ async function onBomProfileChange() {
   if (!currentFile) return;
   currentBom = null;  // invalidate cached BOM
   showContentTab('bom');
-  const profileId = document.getElementById('bomProfileSel').value;
+  const profileId = getSelectedBomProfileId();
   showLoading(true, 'Computing BOM…');
   try {
     let url = '/api/bom/' + currentWs + '/' + safeEncode(currentFile.rel_path);
     if (profileId) url += '?profile=' + encodeURIComponent(profileId);
     const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (res.status === 401) { openAuthModal(); throw new Error('Authentication required'); }
+    if (!res.ok) throw new Error(await readBomError(res));
     currentBom = await res.json();
     renderBom(currentBom);
     setStatus('BOM loaded' + (profileId ? ' (profile applied)' : ''));
   } catch(e) {
+    showBomError(e.message);
     setStatus('BOM error: ' + e.message, true);
   } finally { showLoading(false); }
 }
@@ -1797,8 +2708,26 @@ async function onBomProfileChange() {
 // Boot
 // ═══════════════════════════════════════════════════════════════════════════
 initResizers();
-loadWorkspaces();
-loadProfiles();
+document.getElementById('authActionBtn').style.display = 'none';
+updateAuthModal();
+document.getElementById('authUsername').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAuth();
+});
+document.getElementById('authPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAuth();
+});
+(async () => {
+  try {
+    if (await fetchCurrentUser()) {
+      await loadProfiles();
+      await loadWorkspaces();
+      await loadWorkspaceFiles(currentWs);
+    }
+  } catch (e) {
+    console.error('bootstrap', e);
+    openAuthModal();
+  }
+})();
 </script>
 </body>
 </html>
