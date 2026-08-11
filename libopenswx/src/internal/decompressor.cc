@@ -12,13 +12,18 @@ namespace openswx::internal {
 
 namespace {
 
+constexpr std::size_t kMaxInflatedSize = 128u * 1024u * 1024u;  // 128 MiB
+
 std::optional<std::vector<uint8_t>> InflateRawImpl(
     const uint8_t* data, std::size_t size, std::size_t hint_uncompressed) {
   if (size == 0) return std::vector<uint8_t>{};
+  if (hint_uncompressed > kMaxInflatedSize) return std::nullopt;
 
   // Start with the hinted size, grow as needed.
   std::size_t out_cap =
       hint_uncompressed > 0 ? hint_uncompressed : size * 4;
+  if (out_cap == 0) out_cap = size;
+  if (out_cap > kMaxInflatedSize) out_cap = kMaxInflatedSize;
 
   std::vector<uint8_t> out(out_cap);
 
@@ -41,8 +46,14 @@ std::optional<std::vector<uint8_t>> InflateRawImpl(
       return std::nullopt;
     }
     if (strm.avail_out == 0) {
+      if (out.size() >= kMaxInflatedSize) {
+        inflateEnd(&strm);
+        return std::nullopt;
+      }
       // Output buffer too small — double it.
-      out.resize(out.size() * 2);
+      const std::size_t new_size =
+          std::min(kMaxInflatedSize, out.size() * 2);
+      out.resize(new_size);
     }
   }
 

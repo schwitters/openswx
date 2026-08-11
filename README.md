@@ -104,7 +104,35 @@ docker run --rm \
   /files/example.SLDPRT
 ```
 
-The same pattern works with `podman`. The image runs as a non-root user, exposes port `8087`, stores persistent state in `/data`, and includes `asmbox`, `swx_dump`, and `swx_scan`.
+Scan a local CAD archive without uploading files:
+
+```bash
+./build/asmbox/swx_scan /path/to/archive
+```
+
+or through the container:
+
+```bash
+docker run --rm \
+  --entrypoint swx_scan \
+  -v "$PWD:/files:ro" \
+  openswx:latest \
+  /files
+```
+
+`swx_scan` reads `.SLDPRT`, `.SLDASM`, and `.SLDDRW` files locally, prints only aggregate compatibility statistics, and never uploads CAD content anywhere by itself.
+
+The same container patterns work with `podman`. The image runs as a non-root user, exposes port `8087`, stores persistent state in `/data`, and includes `asmbox`, `swx_dump`, and `swx_scan`.
+
+## Help Us Test openswx
+
+Real-world SolidWorks files from different versions, configurations, and modelling workflows are the fastest way to improve parser compatibility.
+
+If you want to help:
+
+- Run `swx_scan` on representative archives and share the anonymized output or JSON report.
+- Mention the SolidWorks version, document type, and whether the file parsed successfully.
+- Only share real CAD files intentionally; proprietary or confidential models should stay local unless you explicitly want to disclose them.
 
 ---
 
